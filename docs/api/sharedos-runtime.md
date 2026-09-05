@@ -755,6 +755,18 @@ Defined in: [packages/runtime/src/standard-runtime.ts:91](https://github.com/Aic
 
 ---
 
+### DescribeReachOptions
+
+Defined in: [packages/runtime/src/reach.ts:3](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/runtime/src/reach.ts#L3)
+
+#### Properties
+
+| Property                             | Modifier   | Type     | Description                                                                                                                                                                                                                                                                                                                                                                                    | Defined in                                                                                                             |
+| ------------------------------------ | ---------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| <a id="property-limit"></a> `limit?` | `readonly` | `number` | How many entries are written out before the rest are counted instead. A reach may carry thousands of entries, and a prompt that lists them all is a prompt the model reads instead of the task. Past the limit the text says how many were left out, so a truncated description never reads as a complete one. Defaults to [DEFAULT\_DESCRIBED\_REACH\_LIMIT](#default_described_reach_limit). | [packages/runtime/src/reach.ts:12](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/runtime/src/reach.ts#L12) |
+
+---
+
 ### ExecuteTurnOptions
 
 Defined in: [packages/runtime/src/executor.ts:81](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/runtime/src/executor.ts#L81)
@@ -904,7 +916,7 @@ Defined in: [packages/runtime/src/runtime-plugin.ts:74](https://github.com/Aicoo
 | <a id="property-now"></a> `now`                 | `readonly` | `string`                                                                                                                                                                                                   | -                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | [packages/runtime/src/runtime-plugin.ts:80](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/runtime/src/runtime-plugin.ts#L80)   |
 | <a id="property-owner"></a> `owner`             | `readonly` | \{ `kind`: `"human"`; `userId`: `string`; \} \| \{ `agentId`: `string`; `kind`: `"agent"`; \} \| \{ `conversationId`: `string`; `kind`: `"group"`; \} \| \{ `kind`: `"service"`; `serviceId`: `string`; \} | -                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | [packages/runtime/src/runtime-plugin.ts:76](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/runtime/src/runtime-plugin.ts#L76)   |
 | <a id="property-purpose"></a> `purpose`         | `readonly` | `string`                                                                                                                                                                                                   | -                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | [packages/runtime/src/runtime-plugin.ts:78](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/runtime/src/runtime-plugin.ts#L78)   |
-| <a id="property-reach"></a> `reach`             | `readonly` | \{ `reach`: `object`[]; `status`: `"computed"`; \} \| \{ `reasonCode`: `"usage_store_unavailable"` \| `"authority_unavailable"`; `status`: `"unavailable"`; \}                                             | Where this turn may operate, with the authority stripped out. The catalogue says which tools exist; this says which resources they are worth pointing at. Without it a runtime can only guess paths and collect denials, or the host reads raw grants to describe the boundary in a prompt -- at exactly the seam designed to keep grants away from the model. `computed` is derived by `SharedOSKernel.reach` from the grants the turn's decisions are made against, then narrowed to the namespaces this turn's catalogue operates on. It carries no grant id, issuer, expiry, or budget, and a bounded grant whose budget is spent does not appear. `unavailable` means the reach could not be established, and `reasonCode` says why: `usage_store_unavailable` when a bounded budget could not be read, or `authority_unavailable` when the authority could not be loaded again after admission. Either is handed over as such rather than as an empty list that would read as "nothing", which is a true answer for some turns and not for this one. The turn still runs: every call is decided on its own, and a call that depends on what could not be read fails closed under the same code. Descriptive, never permissive: every call is authorized independently, so an entry here is not a permission and a stale one cannot open anything. | [packages/runtime/src/runtime-plugin.ts:105](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/runtime/src/runtime-plugin.ts#L105) |
+| <a id="property-reach"></a> `reach`             | `readonly` | \{ `reach`: `object`[]; `status`: `"computed"`; \} \| \{ `reasonCode`: `"authority_unavailable"` \| `"usage_store_unavailable"`; `status`: `"unavailable"`; \}                                             | Where this turn may operate, with the authority stripped out. The catalogue says which tools exist; this says which resources they are worth pointing at. Without it a runtime can only guess paths and collect denials, or the host reads raw grants to describe the boundary in a prompt -- at exactly the seam designed to keep grants away from the model. `computed` is derived by `SharedOSKernel.reach` from the grants the turn's decisions are made against, then narrowed to the namespaces this turn's catalogue operates on. It carries no grant id, issuer, expiry, or budget, and a bounded grant whose budget is spent does not appear. `unavailable` means the reach could not be established, and `reasonCode` says why: `usage_store_unavailable` when a bounded budget could not be read, or `authority_unavailable` when the authority could not be loaded again after admission. Either is handed over as such rather than as an empty list that would read as "nothing", which is a true answer for some turns and not for this one. The turn still runs: every call is decided on its own, and a call that depends on what could not be read fails closed under the same code. Descriptive, never permissive: every call is authorized independently, so an entry here is not a permission and a stale one cannot open anything. | [packages/runtime/src/runtime-plugin.ts:105](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/runtime/src/runtime-plugin.ts#L105) |
 | <a id="property-traceid"></a> `traceId`         | `readonly` | `string`                                                                                                                                                                                                   | -                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | [packages/runtime/src/runtime-plugin.ts:79](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/runtime/src/runtime-plugin.ts#L79)   |
 
 ---
@@ -1233,6 +1245,14 @@ registries, namespace settings, or other host policy state.
 
 ## Variables
 
+### DEFAULT\_DESCRIBED\_REACH\_LIMIT
+
+> `const` **DEFAULT\_DESCRIBED\_REACH\_LIMIT**: `128` = `128`
+
+Defined in: [packages/runtime/src/reach.ts:15](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/runtime/src/reach.ts#L15)
+
+---
+
 ### ESCALATION\_ACTION
 
 > `const` **ESCALATION\_ACTION**: `"request"` = `"request"`
@@ -1386,6 +1406,56 @@ record the wrong defect.
 #### Returns
 
 [`ToolHandler`](sharedos-core.md#toolhandler)
+
+---
+
+### describeReach()
+
+> **describeReach**(`reach`, `options?`): `string`
+
+Defined in: [packages/runtime/src/reach.ts:49](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/runtime/src/reach.ts#L49)
+
+`RuntimeVisibleContext.reach`, as the words a model is shown.
+
+The runtime is handed where the turn may operate so a model can be told
+where to look rather than search `/` and collect denials. This is the telling.
+It is the one rendering the shipped runtimes share -- the model driver puts
+it in a system message, the MCP harness runtime hands it over as the
+server's initialize instructions -- and it is exported so a host writing its
+own driver says the same thing the same way.
+
+Every branch of the result is spoken, because each is a different answer:
+
+- `computed` with entries lists each as a place some grant covers, in the
+  shape the tools take -- the namespace, the path as the JSON array a
+  `path` argument is, and whether the entry covers what lies beneath it.
+- `computed` with none says so. That is a true answer for a turn that
+  reaches nothing, and saying nothing would leave the model to guess.
+- `unavailable` says the reach could not be established and names the
+  contract's reason code. It is deliberately not written as an empty list:
+  the executor went to the trouble of handing over `unavailable` so that
+  "nothing" and "unknown" stay distinguishable (ADR 0021), and a renderer
+  that collapsed them would rebuild the silent case at the last hop. A call
+  that depends on what could not be read fails closed under the same code,
+  so the code is what lets the model correlate the two.
+
+Every rendering says that the text is descriptive: each call is still
+decided on its own, so an entry here is not a permission and a missing one
+is not a refusal. Actions are listed as the grants state them, not as the
+offered tools could exercise them -- `reachThroughTools` narrows by
+namespace and leaves actions alone -- which is one more reason the model is
+told the list decides nothing.
+
+#### Parameters
+
+| Parameter | Type                                                                                                                                                           |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reach`   | \{ `reach`: `object`[]; `status`: `"computed"`; \} \| \{ `reasonCode`: `"authority_unavailable"` \| `"usage_store_unavailable"`; `status`: `"unavailable"`; \} |
+| `options` | [`DescribeReachOptions`](#describereachoptions)                                                                                                                |
+
+#### Returns
+
+`string`
 
 ---
 

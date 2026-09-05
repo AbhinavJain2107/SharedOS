@@ -193,6 +193,7 @@ const driver: AgentTurnDriver = {
           // its tool definitions; `inputSchema` is already JSON Schema.
           // request.context.reach says where those tools are worth pointing:
           // the paths some grant covers, with the grant itself left out.
+          // describeReach(request.context.reach) renders it as words a model reads.
           return {
             type: "tool_call",
             call: {
