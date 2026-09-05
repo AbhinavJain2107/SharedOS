@@ -241,6 +241,16 @@ const runtime = createMcpHarnessRuntime(CLAUDE_CODE_MCP_HARNESS);
 
 `CODEX_MCP_HARNESS`, `DEEPSEEK_MCP_HARNESS`, and `PI_MCP_HARNESS` are the others.
 
+Per turn, the server's initialize `instructions` carry where the turn may
+operate — `RuntimeVisibleContext.reach`, rendered by `describeReach` — so a
+harness that surfaces server instructions shows its model the granted paths
+rather than leaving it to search from the root. An `instructions` string on the
+options is the host's standing guidance and is placed before it; a function of
+the turn request replaces the composition, and returning `undefined` sends none.
+Whether the model sees the text is the harness's doing: Claude Code surfaces
+server instructions, and a harness that does not shows its model the catalogue
+alone, which is what it saw before.
+
 Each spec hands its CLI the connection in the one form that CLI takes, and
 nothing else:
 

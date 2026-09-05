@@ -6,6 +6,7 @@ import type {
   ToolResult,
 } from "@aicoo/sharedos-contracts";
 import {
+  describeReach,
   escalationOffered,
   escalationRequest,
   type AgentTurnDecision,
@@ -90,6 +91,17 @@ export interface ModelDriverOptions {
   /** Overrides how the turn message becomes the model's prompt. */
   readonly prompt?: (request: AgentTurnRequest) => string;
   /**
+   * Overrides what the model is told before the prompt, as a system message.
+   *
+   * By default it is `request.context.reach` rendered by `describeReach`:
+   * where this turn's tools may operate, with the authority left out. The
+   * prompt carries the task and this carries the environment the task runs
+   * in, which is what a chat-completions provider's system role is for, and
+   * it is the same layer a harness maps MCP initialize instructions into.
+   * Returning `undefined` sends no system message at all.
+   */
+  readonly instructions?: (request: AgentTurnRequest) => string | undefined;
+  /**
    * Guard against a model that never forms a readable call.
    *
    * A call whose arguments do not parse is refused by the driver and answered
@@ -141,6 +153,7 @@ export class ModelDriver implements AgentTurnDriver {
   readonly manifest: RuntimeManifest;
   readonly #client: ModelClient;
   readonly #prompt: (request: AgentTurnRequest) => string;
+  readonly #instructions: (request: AgentTurnRequest) => string | undefined;
   readonly #maxMalformedCalls: number;
   readonly #declareStep: ModelDriverOptions["declareStep"];
 
@@ -148,6 +161,7 @@ export class ModelDriver implements AgentTurnDriver {
     this.manifest = options.manifest;
     this.#client = options.client;
     this.#prompt = options.prompt ?? defaultPrompt;
+    this.#instructions = options.instructions ?? defaultInstructions;
     this.#maxMalformedCalls = options.maxMalformedCalls ?? DEFAULT_MAX_MALFORMED_CALLS;
     if (!Number.isInteger(this.#maxMalformedCalls) || this.#maxMalformedCalls <= 0) {
       throw new TypeError("maxMalformedCalls must be a positive integer");
@@ -163,10 +177,18 @@ export class ModelDriver implements AgentTurnDriver {
       parameters: tool.inputSchema,
     }));
     return Promise.resolve(
-      new ModelSession(this.#client, request, codec, tools, this.#prompt(request), {
-        maxMalformedCalls: this.#maxMalformedCalls,
-        ...(this.#declareStep === undefined ? {} : { declareStep: this.#declareStep }),
-      }),
+      new ModelSession(
+        this.#client,
+        request,
+        codec,
+        tools,
+        this.#instructions(request),
+        this.#prompt(request),
+        {
+          maxMalformedCalls: this.#maxMalformedCalls,
+          ...(this.#declareStep === undefined ? {} : { declareStep: this.#declareStep }),
+        },
+      ),
     );
   }
 }
@@ -208,6 +230,7 @@ class ModelSession implements AgentTurnSession {
     request: AgentTurnRequest,
     codec: ToolNameCodec,
     tools: readonly ModelTool[],
+    instructions: string | undefined,
     prompt: string,
     options: Pick<ModelDriverOptions, "declareStep"> & { readonly maxMalformedCalls: number },
   ) {
@@ -215,7 +238,13 @@ class ModelSession implements AgentTurnSession {
     this.#request = request;
     this.#codec = codec;
     this.#tools = tools;
-    this.#messages = [{ role: "user", content: prompt }];
+    // The environment before the task: a system message saying where the
+    // turn may operate, then the prompt. Nothing the model is told here is a
+    // permission; the kernel decides every call the model goes on to make.
+    this.#messages = [
+      ...(instructions === undefined ? [] : [{ role: "system", content: instructions } as const]),
+      { role: "user", content: prompt },
+    ];
     this.#maxMalformedCalls = options.maxMalformedCalls;
     this.#declareStep = options.declareStep;
     this.#offered = escalationOffered(request.tools);
@@ -473,6 +502,11 @@ export function modelToolResultMessage(result: ToolResult): ModelMessage {
 
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/** What a model is told before its prompt when the driver is given no `instructions`. */
+function defaultInstructions(request: AgentTurnRequest): string {
+  return describeReach(request.context.reach);
 }
 
 /** The message payload as a prompt, matching what a harness driver does with it. */

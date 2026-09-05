@@ -11,6 +11,7 @@ import type {
   ToolDefinition,
 } from "@aicoo/sharedos-contracts";
 import {
+  EXECUTION_NAMESPACE,
   SharedOSKernel,
   ToolRegistry,
   agentExecutionCapability,
@@ -33,7 +34,12 @@ import {
 import { codexMcpConfig, codexMcpServerSettings } from "@aicoo/sharedos-mcp";
 import { InMemoryAuditSink } from "@aicoo/sharedos-testkit";
 
-import { CODEX_MCP_HARNESS, createMcpHarnessRuntime, type McpHarnessSpec } from "./mcp-runtime.js";
+import {
+  CODEX_MCP_HARNESS,
+  createMcpHarnessRuntime,
+  type McpHarnessRuntimeOptions,
+  type McpHarnessSpec,
+} from "./mcp-runtime.js";
 import { claudeCodeProtocol } from "./claude-code/protocol.js";
 
 /**
@@ -283,6 +289,7 @@ process.stdout.write(
       url,
       protocolVersion: initialized.result.protocolVersion,
       serverInfo: initialized.result.serverInfo,
+      instructions: initialized.result.instructions ?? null,
       discovered: listed.result.tools.map((tool) => tool.name),
       catalogHash: listed.result._meta["sharedos/catalogHash"],
       calls: seen,
@@ -327,13 +334,19 @@ function fakeHarness(calls: readonly unknown[]): McpHarnessSpec {
   };
 }
 
-async function runTurn(calls: readonly unknown[]): Promise<{
+async function runTurn(
+  calls: readonly unknown[],
+  options: McpHarnessRuntimeOptions = {},
+): Promise<{
   status: string;
   output: Record<string, unknown>;
   metadata: Record<string, unknown>;
   events: readonly { type: string; data: unknown }[];
 }> {
-  const executor = new SharedOSExecutor(kernel(), createMcpHarnessRuntime(fakeHarness(calls)));
+  const executor = new SharedOSExecutor(
+    kernel(),
+    createMcpHarnessRuntime(fakeHarness(calls), options),
+  );
   const result = await executor.execute(executionRequest());
   const text =
     result.status === "succeeded" && typeof result.output === "object" && result.output !== null
@@ -834,4 +847,45 @@ describe("the Codex spec", () => {
     expect(launch.args.some((arg) => arg.includes("secret-bridge-token"))).toBe(false);
     expect(launch.args.some((arg) => arg.includes("bearer_token"))).toBe(false);
   });
+});
+
+/**
+ * What the harness is told at initialize.
+ *
+ * MCP gives a server one seat for saying how its tools are meant to be used,
+ * and this runtime fills it per turn with where the turn may operate, rendered
+ * by `describeReach` from the reach the executor handed over. The fake harness
+ * reports what it was told, so the test reads the text off the wire rather
+ * than off the option.
+ */
+describe("what the harness is told at initialize", () => {
+  it("is told where the turn may operate, in the shape the tools take", async () => {
+    const turn = await runTurn([]);
+    const instructions = turn.output["instructions"] as string;
+
+    expect(instructions).toContain('- files ["Work","Public"] and everything beneath it: read');
+    expect(instructions).toContain("every call is still decided on its own");
+    // The turn's own execution grant is in force too, but no offered tool
+    // operates on its namespace, so it is not somewhere this turn can work and
+    // the model is not sent there.
+    expect(instructions).not.toContain(EXECUTION_NAMESPACE);
+  }, 30_000);
+
+  it("places the host's standing guidance before the turn's reach", async () => {
+    const turn = await runTurn([], { instructions: "A refusal is an expected result." });
+    const instructions = turn.output["instructions"] as string;
+
+    expect(instructions.startsWith("A refusal is an expected result.\n\n")).toBe(true);
+    expect(instructions).toContain('- files ["Work","Public"] and everything beneath it: read');
+  }, 30_000);
+
+  it("says exactly what a host's function says, reach included only if it says so", async () => {
+    const custom = await runTurn([], {
+      instructions: (request) => `turn ${request.executionId}: ${request.context.reach.status}`,
+    });
+    const none = await runTurn([], { instructions: () => undefined });
+
+    expect(custom.output["instructions"]).toBe("turn execution-1: computed");
+    expect(none.output["instructions"]).toBeNull();
+  }, 60_000);
 });
