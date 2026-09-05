@@ -129,6 +129,19 @@ answer, and the HTTP route that serves it, stay unfiltered. A card is not
 narrowed this way, for the reason above: it describes what the subject was
 authorized, not what one caller's catalogue offers.
 
+How a runtime says it is the runtime's, and the shipped ones say it in one
+layer. `describeReach` renders the result as words: each entry as its namespace,
+its path as the JSON array a `path` argument takes, and whether it covers what
+lies beneath; an empty reach as "nowhere"; an `unavailable` one as exactly that,
+with its reason code — the branch was handed over so that "nothing" and
+"unknown" stay distinguishable, and a renderer that collapsed them would rebuild
+the silent case at the last hop. The model driver puts the text in a system
+message ahead of the prompt, and the MCP harness runtime hands it to the harness
+as the server's initialize instructions: the environment before the task, in
+the layer a provider or a harness keeps apart from the user's turn. Every
+rendering says the text is descriptive, because it is — an entry is not a
+permission and a missing one is not a refusal.
+
 ### Reading a card is an authorized operation
 
 A card is served only to an actor holding a capability over the directory:
