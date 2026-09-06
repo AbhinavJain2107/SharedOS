@@ -465,6 +465,14 @@ for (const column of manifest.columns) {
   console.log(
     `  ${"".padEnd(12)} model:     ` + (models.length === 0 ? "not declared" : models.join(", ")),
   );
+  // Beside the model for the same reason the catalogue is above it: a moved
+  // cell is the model's choice only if the seat was asked the same thing.
+  console.log(
+    `  ${"".padEnd(12)} prompt set: ` +
+      (column.promptSetHash === undefined
+        ? "none (this column tells the seat nothing)"
+        : `sha256:${column.promptSetHash.slice(0, 12)}…`),
+  );
   console.log(
     `  ${"".padEnd(12)} runtime:   ${seen.runtime.id} ${seen.runtime.version} ` +
       `(protocol ${seen.runtime.protocolVersion})`,
