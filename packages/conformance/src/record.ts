@@ -69,6 +69,21 @@ export const SystemIdentitySchema = z
     catalogHash: ContentHashSchema.optional(),
     toolCount: z.number().int().nonnegative().optional(),
     /**
+     * Hash of what the runtime told the seat before the turn: its instructions
+     * and its prompt, as `{instructions, prompt}` in canonical JSON.
+     *
+     * Present when the runtime handed the seat text and said so, which both
+     * shipped runtimes do: the model driver over its system message and
+     * prompt, the MCP harness runtime over its initialize instructions and the
+     * prompt the CLI was launched with. The same words carry the same hash
+     * whichever said them. A reworded prompt is a different question, so two
+     * runs of one column are comparable on the model's choices only while this
+     * matches as well as `catalogHash`; a cell that moved under a changed
+     * prompt is not the model changing its mind. It covers what SharedOS said
+     * and not what a harness added of its own, which SharedOS never sees.
+     */
+    promptHash: ContentHashSchema.optional(),
+    /**
      * The declared tool surface, so a result can be read for what it is.
      *
      * "The kernel refused every violation" means one thing when the managed

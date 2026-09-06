@@ -72,6 +72,7 @@ export function assembleExecutionRecord(input: AssembleExecutionRecordInput): Ex
     experiment: input.experiment,
     system: {
       ...publishedCatalogue(result),
+      ...handedPrompt(result),
       ...declaredModel(result),
       ...input.system,
       runtime: input.system.runtime ?? runtimeManifestOf(result),
@@ -159,6 +160,25 @@ function publishedCatalogue(result: ExecutionResult): Partial<SystemIdentity> {
     return {};
   }
   return { catalogHash, toolCount: exposedTools(result.events).length };
+}
+
+/**
+ * What the runtime told the seat, if it recorded having told it anything.
+ *
+ * Read from the turn's own result for the same reason the catalogue is: it is
+ * the runtime that composed the text, and a hash the caller supplied would be a
+ * claim about what it meant to send. A runtime that hands the seat no text --
+ * the embedded adversary, a driven vendor column whose frames are written for
+ * it -- leaves the field absent rather than carrying a hash over a prompt no
+ * model was shown. Anything that is not a content hash is ignored the same way
+ * a malformed catalogue hash is.
+ */
+function handedPrompt(result: ExecutionResult): Partial<SystemIdentity> {
+  const promptHash = result.metadata?.["promptHash"];
+  if (typeof promptHash !== "string" || !/^[0-9a-f]{64}$/u.test(promptHash)) {
+    return {};
+  }
+  return { promptHash };
 }
 
 /**

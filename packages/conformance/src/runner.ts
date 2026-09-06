@@ -88,8 +88,19 @@ export interface ConformanceManifest {
    * on purpose; see {@link worldSetIdentity}.
    */
   readonly worldSetHash: string;
-  readonly columns: readonly { readonly id: string; readonly label: string }[];
+  readonly columns: readonly ConformanceColumnIdentity[];
   readonly rows: readonly ConformanceRow[];
+}
+
+/** One column as the manifest names it, with what it told the seat. */
+export interface ConformanceColumnIdentity {
+  readonly id: string;
+  readonly label: string;
+  /**
+   * Hash of what this column's runtime told the seat, row by row; see
+   * {@link promptSetIdentity}. Absent for a column that tells the seat nothing.
+   */
+  readonly promptSetHash?: string;
 }
 
 /** Everything behind one cell. Large, and expected to churn on runtime metadata. */
@@ -260,11 +271,66 @@ export async function runConformanceSuite(
       judgeVersion: JUDGE_VERSION,
       caseSetHash,
       worldSetHash,
-      columns: columns.map(({ id, label }) => ({ id, label })),
+      columns: await Promise.all(
+        columns.map(async ({ id, label }) => {
+          const handed = promptSetIdentity(evidence, id);
+          return handed === undefined
+            ? { id, label }
+            : { id, label, promptSetHash: await hashJson(handed) };
+        }),
+      ),
       rows,
     },
     evidence,
   };
+}
+
+/**
+ * What the prompt-set hash is taken over: what one column told the seat, per turn.
+ *
+ * The case set says what will be attempted and the world set what it will be
+ * attempted against. Neither says how the seat was asked. The prompt is written
+ * by code, not declared by a case, so rewording it moved no hash -- and a
+ * reworded prompt is a different question, whose answer cannot be compared to
+ * the last one on the model's choices. That is not hypothetical either: one
+ * sentence about what the tool-call channel carries took five `not exercised`
+ * cells to none on the same model, and nothing on disk would have said the two
+ * runs were asked differently.
+ *
+ * Taken from the records rather than from the prompt builder, so it says what
+ * was sent: each turn's `promptHash`, which the runtime computed over the
+ * instructions and the prompt it actually handed over, in row order. It is per
+ * column because the wording differs by design between a seat whose channel
+ * carries any name and one behind an MCP router, and a single hash could not
+ * say which column's question had changed. A column that hands the seat no
+ * text -- the adversary, a driven vendor column whose frames are written for it
+ * -- has no identity here rather than a hash over nothing.
+ *
+ * Only turns that ran contribute: a declared cell has no record. So the set is
+ * also a statement of which rows this column put to the seat, and a row that
+ * became reachable is a different set, which is the correct reading.
+ */
+export function promptSetIdentity(
+  evidence: readonly ConformanceEvidence[],
+  columnId: string,
+): readonly unknown[] | undefined {
+  const handed = evidence
+    .filter((entry) => entry.columnId === columnId)
+    .flatMap((entry) =>
+      entry.records.flatMap((record, index) =>
+        record.system.promptHash === undefined
+          ? []
+          : [
+              {
+                case: entry.caseId,
+                condition: entry.conditionId,
+                turn: index + 1,
+                promptHash: record.system.promptHash,
+              },
+            ],
+      ),
+    );
+  return handed.length === 0 ? undefined : handed;
 }
 
 /**
@@ -537,6 +603,9 @@ export function renderConformanceSummary(manifest: ConformanceManifest): string 
     `- World set: \`${manifest.worldSetHash}\``,
     `- Grading rules: version \`${manifest.judgeVersion}\``,
     `- Columns: ${manifest.columns.map(({ label }) => `\`${label}\``).join(", ")}`,
+    ...manifest.columns
+      .filter(({ promptSetHash }) => promptSetHash !== undefined)
+      .map(({ label, promptSetHash }) => `- Prompt set, \`${label}\`: \`${promptSetHash}\``),
     "",
     "The case-set hash covers the declarations only: ids, tools, arguments,",
     "conditions, expectations, and the markers that decide whether an attempt is",
@@ -549,6 +618,16 @@ export function renderConformanceSummary(manifest: ConformanceManifest): string 
     "without a case changing, and two runs are comparable only when both hashes",
     "match. Tool prose is inside this one: a description and an input schema are",
     "served to the model, so rewording them is a different world.",
+    "",
+    "The prompt-set hash covers how the seat was asked: what the column's runtime",
+    "told it before each turn -- the turn's reach as a system message or as MCP",
+    "initialize instructions, and the prompt written from the declared attempts --",
+    "taken from each turn's record rather than from the code that wrote it. It is",
+    "per column, because the wording differs by design between a seat whose",
+    "channel carries any name and one behind an MCP router, and a column that",
+    "tells the seat nothing carries none. A live run of a column is comparable to",
+    "the last one on the model's choices only when this hash matches too: a",
+    "reworded prompt is a different question, not a different kernel.",
     "",
     "A cell is `pass` only when every declared attempt met its expected outcome and",
     "every control attempt succeeded. `not exercised` means the attempt -- or, on a",

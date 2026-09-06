@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ExecutionRequest, ExecutionResult } from "@aicoo/sharedos-contracts";
+import type { ExecutionRequest, ExecutionResult, JsonObject } from "@aicoo/sharedos-contracts";
 import type { AuditEvent } from "@aicoo/sharedos-core";
 
 import { assembleExecutionRecord } from "./assemble.js";
@@ -157,6 +157,26 @@ const system: Omit<SystemIdentity, "runtime"> = {
 };
 
 describe("execution record assembly", () => {
+  it("carries what the runtime told the seat, and only when the runtime said so", () => {
+    const hash = "ab".repeat(32);
+    const assemble = (metadata: JsonObject) =>
+      assembleExecutionRecord({
+        request: request(),
+        result: result({ metadata: { ...result().metadata, ...metadata } }),
+        auditEvents: auditTrail(),
+        experiment,
+        system,
+      });
+
+    // Read off the turn's own result, like the catalogue: the runtime composed
+    // the text, so the runtime's hash is the one that says what was sent.
+    expect(assemble({ promptHash: hash }).system.promptHash).toBe(hash);
+    // A runtime that told the seat nothing leaves the field absent, and one
+    // that reports something other than a content hash is not believed.
+    expect(assemble({}).system.promptHash).toBeUndefined();
+    expect(assemble({ promptHash: "reworded" }).system.promptHash).toBeUndefined();
+  });
+
   it("binds identity, authority, execution, and cost into one comparable record", () => {
     const record = assembleExecutionRecord({
       request: request(),
