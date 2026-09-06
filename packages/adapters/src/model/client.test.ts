@@ -146,6 +146,25 @@ describe("the chat-completions client", () => {
     expect(body).toMatchObject({ max_tokens: 256, temperature: 0.5 });
   });
 
+  it("sends the thinking field only when asked, and reports it as a setting", async () => {
+    const silent = vi.fn<Fetch>(async () => respond(COMPLETION));
+    const untouched = client(silent);
+    await untouched.complete(REQUEST, signal());
+    // Not part of the OpenAI wire shape: a provider that does not know the
+    // field rejects the request, so the default sends nothing and records
+    // nothing.
+    expect(JSON.parse(requestInit(silent).body as string)).not.toHaveProperty("thinking");
+    expect(untouched.settings).toBeUndefined();
+
+    const fetch = vi.fn<Fetch>(async () => respond(COMPLETION));
+    const configured = client(fetch, { thinking: "disabled" });
+    await configured.complete(REQUEST, signal());
+    expect(JSON.parse(requestInit(fetch).body as string)).toMatchObject({
+      thinking: { type: "disabled" },
+    });
+    expect(configured.settings).toEqual({ thinking: "disabled" });
+  });
+
   it("reads the reply, the served model, the finish reason, and the usage", async () => {
     const fetch = vi.fn<Fetch>(async () => respond(COMPLETION));
     const reply = await client(fetch).complete(REQUEST, signal());

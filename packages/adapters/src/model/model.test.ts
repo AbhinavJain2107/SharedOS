@@ -382,6 +382,16 @@ describe("a model driving a SharedOS turn", () => {
     expect(result.metadata?.["requestedModel"]).toBe("test-model");
   });
 
+  it("records the settings the client sent, so one model name is not two configurations", async () => {
+    const client = {
+      ...scriptedClient([{ text: "done", toolCalls: [] }]),
+      settings: { thinking: "disabled" },
+    };
+    const { result } = await runWith(client);
+
+    expect(result.metadata?.["modelSettings"]).toEqual({ thinking: "disabled" });
+  });
+
   it("re-authorizes each call and mediates it through the kernel", async () => {
     const client = scriptedClient([
       {
