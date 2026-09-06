@@ -34,6 +34,7 @@
  *   SHAREDOS_MODEL           model name          (default DSH_MODEL, else the config's model.id, else deepseek-v4-flash)
  *   SHAREDOS_MODEL_BASE_URL  chat-completions root (default https://api.deepseek.com)
  *   SHAREDOS_MODEL_PROVIDER  provider label      (default the config's model.provider, else deepseek)
+ *   SHAREDOS_MODEL_THINKING  disabled (default), enabled, or provider to send no such field
  *   SHAREDOS_NATIVE_CONFIG   default for --config
  *   DSH_RUNTIME_COMMAND      DeepSeek Harness JSON-RPC runtime (default dsh-jsonrpc-agent)
  *   DSH_RUNTIME_CONFIG       its plugin composition, passed as the first argument
@@ -347,6 +348,30 @@ const modelName =
   process.env["SHAREDOS_MODEL"] ?? process.env["DSH_MODEL"] ?? model?.id ?? "deepseek-v4-flash";
 const modelBaseUrl = process.env["SHAREDOS_MODEL_BASE_URL"] ?? "https://api.deepseek.com";
 const modelProvider = process.env["SHAREDOS_MODEL_PROVIDER"] ?? model?.provider ?? "deepseek";
+/**
+ * Whether the model reasons before it answers. Off by default.
+ *
+ * The column measures whether a call reaches the kernel and how the kernel
+ * answers, not how the model deliberates. A reasoning model spends its reply
+ * budget on the test prompt before its first call, and a reply cut at the
+ * ceiling fails the turn with nothing attempted, which grades the row
+ * `not exercised` without the kernel being asked. `enabled` turns reasoning
+ * on; `provider` sends no such field, for an endpoint that does not know
+ * DeepSeek's `thinking`. Whatever is sent is recorded on every turn as
+ * `modelSettings` and named in the column's label, so a run in one mode is
+ * never read as a run in the other.
+ */
+const modelThinking = process.env["SHAREDOS_MODEL_THINKING"] ?? "disabled";
+if (!["disabled", "enabled", "provider"].includes(modelThinking)) {
+  console.error(
+    `SHAREDOS_MODEL_THINKING must be disabled, enabled, or provider; got ${JSON.stringify(modelThinking)}`,
+  );
+  process.exit(1);
+}
+const modelLabel =
+  modelThinking === "provider"
+    ? `Standard (${modelName})`
+    : `Standard (${modelName}, thinking ${modelThinking === "disabled" ? "off" : "on"})`;
 const MODEL_COLUMN_ID = "model-live";
 
 if (only !== undefined && only !== "model") {
@@ -356,7 +381,7 @@ if (only !== undefined && only !== "model") {
 } else if (modelApiKey === undefined || modelApiKey.trim() === "") {
   availability.push({
     columnId: MODEL_COLUMN_ID,
-    label: `Standard (${modelName})`,
+    label: modelLabel,
     harness: "model",
     available: false,
     reason: "None of SHAREDOS_MODEL_API_KEY, DEEPSEEK_API_KEY, DSH_API_KEY is set.",
@@ -364,24 +389,26 @@ if (only !== undefined && only !== "model") {
 } else {
   availability.push({
     columnId: MODEL_COLUMN_ID,
-    label: `Standard (${modelName})`,
+    label: modelLabel,
     harness: "model",
     available: true,
     detail: {
       endpoint: `${modelBaseUrl}/chat/completions`,
       model: modelName,
       provider: modelProvider,
+      thinking: modelThinking,
     },
   });
   columns.push(
     modelColumn({
       id: MODEL_COLUMN_ID,
-      label: `Standard (${modelName})`,
+      label: modelLabel,
       client: new OpenAiCompatibleModelClient({
         apiKey: modelApiKey,
         model: modelName,
         provider: modelProvider,
         baseUrl: modelBaseUrl,
+        ...(modelThinking === "provider" ? {} : { thinking: modelThinking }),
       }),
     }),
   );
