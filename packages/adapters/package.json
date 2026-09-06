@@ -52,12 +52,12 @@
   },
   "dependencies": {
     "@aicoo/sharedos-contracts": "workspace:*",
+    "@aicoo/sharedos-core": "workspace:*",
     "@aicoo/sharedos-mcp": "workspace:*",
     "@aicoo/sharedos-runtime": "workspace:*",
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@aicoo/sharedos-core": "workspace:*",
     "@aicoo/sharedos-testkit": "workspace:*"
   }
 }

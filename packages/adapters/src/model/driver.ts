@@ -23,7 +23,13 @@ import {
   type ModelTool,
   type ModelToolCall,
 } from "./client.js";
-import { defaultPrompt, failed, parseToolArguments, toolResultBody } from "../internal.js";
+import {
+  defaultPrompt,
+  failed,
+  handedPromptHash,
+  parseToolArguments,
+  toolResultBody,
+} from "../internal.js";
 
 /**
  * The alphabet a chat-completions provider accepts for a function name.
@@ -169,27 +175,23 @@ export class ModelDriver implements AgentTurnDriver {
     this.#declareStep = options.declareStep;
   }
 
-  open(request: AgentTurnRequest, _signal: AbortSignal): Promise<AgentTurnSession> {
+  async open(request: AgentTurnRequest, _signal: AbortSignal): Promise<AgentTurnSession> {
     const codec = new ToolNameCodec(request.tools);
     const tools: ModelTool[] = request.tools.map((tool) => ({
       name: codec.toWire(tool.name),
       description: tool.description,
       parameters: tool.inputSchema,
     }));
-    return Promise.resolve(
-      new ModelSession(
-        this.#client,
-        request,
-        codec,
-        tools,
-        this.#instructions(request),
-        this.#prompt(request),
-        {
-          maxMalformedCalls: this.#maxMalformedCalls,
-          ...(this.#declareStep === undefined ? {} : { declareStep: this.#declareStep }),
-        },
-      ),
-    );
+    const instructions = this.#instructions(request);
+    const prompt = this.#prompt(request);
+    return new ModelSession(this.#client, request, codec, tools, instructions, prompt, {
+      maxMalformedCalls: this.#maxMalformedCalls,
+      // Taken over the two texts the model is about to be sent, before it is
+      // sent anything, so the identity the record carries is the one the
+      // first request was built from and not a reconstruction.
+      promptHash: await handedPromptHash(instructions, prompt),
+      ...(this.#declareStep === undefined ? {} : { declareStep: this.#declareStep }),
+    });
   }
 }
 
@@ -212,6 +214,8 @@ class ModelSession implements AgentTurnSession {
   readonly #pending: ModelToolCall[] = [];
   readonly #maxMalformedCalls: number;
   readonly #declareStep: ModelDriverOptions["declareStep"];
+  /** What the model was told before it answered: the system message and the prompt, hashed. */
+  readonly #promptHash: string;
   /** Whether this turn's catalogue offers the escalate affordance at all. */
   readonly #offered: boolean;
   #servedModel: string | undefined;
@@ -232,7 +236,10 @@ class ModelSession implements AgentTurnSession {
     tools: readonly ModelTool[],
     instructions: string | undefined,
     prompt: string,
-    options: Pick<ModelDriverOptions, "declareStep"> & { readonly maxMalformedCalls: number },
+    options: Pick<ModelDriverOptions, "declareStep"> & {
+      readonly maxMalformedCalls: number;
+      readonly promptHash: string;
+    },
   ) {
     this.#client = client;
     this.#request = request;
@@ -246,6 +253,7 @@ class ModelSession implements AgentTurnSession {
       { role: "user", content: prompt },
     ];
     this.#maxMalformedCalls = options.maxMalformedCalls;
+    this.#promptHash = options.promptHash;
     this.#declareStep = options.declareStep;
     this.#offered = escalationOffered(request.tools);
   }
@@ -393,6 +401,7 @@ class ModelSession implements AgentTurnSession {
       modelProvider: this.#client.provider,
       requestedModel: this.#client.model,
       ...(this.#client.settings === undefined ? {} : { modelSettings: this.#client.settings }),
+      promptHash: this.#promptHash,
       malformedToolCalls: this.#malformed,
       ...(this.#finishReason === undefined ? {} : { finishReason: this.#finishReason }),
       ...(this.#inputTokens === undefined ? {} : { inputTokens: this.#inputTokens }),

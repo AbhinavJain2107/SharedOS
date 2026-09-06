@@ -6,7 +6,7 @@ import type {
   ReachResult,
   ToolDefinition,
 } from "@aicoo/sharedos-contracts";
-import { agentExecutionCapability } from "@aicoo/sharedos-core";
+import { agentExecutionCapability, hashJson } from "@aicoo/sharedos-core";
 import {
   ESCALATION_ACTION,
   ESCALATION_RESOURCE_PATH,
@@ -955,5 +955,26 @@ describe("what the model is told about where it may operate", () => {
       role: "system",
       content: "reach status: computed",
     });
+  });
+
+  it("records what it was told, so a reworded prompt is not read as a changed mind", async () => {
+    const client = scriptedClient([{ text: "done", toolCalls: [] }]);
+    const { result } = await runWith(client);
+
+    // Over the two texts the first request was built from, in the one shape
+    // the MCP harness runtime hashes too, so a model turn and an MCP turn told
+    // the same thing carry the same identity on their records.
+    const [system, user] = client.seen[0]?.messages ?? [];
+    expect(result.metadata?.["promptHash"]).toBe(
+      await hashJson({ instructions: system?.content, prompt: user?.content }),
+    );
+
+    const silent = await runWith(scriptedClient([{ text: "done", toolCalls: [] }]), {
+      instructions: () => undefined,
+    });
+    expect(silent.result.metadata?.["promptHash"]).toBe(
+      await hashJson({ instructions: null, prompt: "read the workspace" }),
+    );
+    expect(silent.result.metadata?.["promptHash"]).not.toBe(result.metadata?.["promptHash"]);
   });
 });

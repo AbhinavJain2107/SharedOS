@@ -44,7 +44,7 @@ import { DEEPSEEK_HARNESS_ID } from "./deepseek/index.js";
 import { deepseekProtocol } from "./deepseek/protocol.js";
 import { PI_HARNESS_ID } from "./pi/index.js";
 import { piProtocol } from "./pi/protocol.js";
-import { defaultPrompt, failed } from "./internal.js";
+import { defaultPrompt, failed, handedPromptHash } from "./internal.js";
 
 /**
  * A vendor harness run natively, against the SharedOS catalogue over MCP.
@@ -255,6 +255,11 @@ export function createMcpHarnessRuntime(
         }
 
         const prompt = (options.prompt ?? defaultPrompt)(request);
+        // The same two texts, in the same shape, as the model driver hashes:
+        // what the server will say at initialize and what the CLI is launched
+        // with. Taken before the launch so a turn that stalls still records
+        // what it was told. What the CLI adds of its own is not here.
+        const promptHash = await handedPromptHash(instructions, prompt);
         const declared = spec.launch({ prompt, connection, workspace, configPaths, request });
         const launch: McpHarnessLaunch = {
           ...declared,
@@ -266,6 +271,7 @@ export function createMcpHarnessRuntime(
         return escalation.settle(outcome, {
           ...outcome.metadata,
           ...harnessMetadata(spec, connection, bridge, catalogHash, options.model),
+          promptHash,
         });
       } finally {
         // Step 7 of the lifecycle. Order matters: the bridge is shut before the

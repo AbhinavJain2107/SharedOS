@@ -15,6 +15,7 @@ import {
   SharedOSKernel,
   ToolRegistry,
   agentExecutionCapability,
+  hashJson,
   type AuditEvent,
   type AuditSink,
   type GrantSource,
@@ -877,6 +878,21 @@ describe("what the harness is told at initialize", () => {
 
     expect(instructions.startsWith("A refusal is an expected result.\n\n")).toBe(true);
     expect(instructions).toContain('- files ["Work","Public"] and everything beneath it: read');
+  }, 30_000);
+
+  it("records what it told the harness, in the shape the model driver records it", async () => {
+    const turn = await runTurn([], { prompt: () => "make the declared calls" });
+
+    // What went over the wire, read back from the harness, hashed with the
+    // prompt the CLI was launched with. A run is comparable to the last one on
+    // the model's choices only while this matches, and the record is where a
+    // reader checks it rather than the run's configuration.
+    expect(turn.metadata["promptHash"]).toBe(
+      await hashJson({
+        instructions: turn.output["instructions"],
+        prompt: "make the declared calls",
+      }),
+    );
   }, 30_000);
 
   it("says exactly what a host's function says, reach included only if it says so", async () => {
