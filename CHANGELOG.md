@@ -49,6 +49,16 @@ each entry calls out what a host has to update.
   one turn's work, not one record, and their order within the turn is the order
   the sink received them.
 
+- **A model client can name its reasoning mode, and the turn records it.**
+  `OpenAiCompatibleModelClientOptions.thinking` sends DeepSeek's `thinking`
+  request field, `enabled` or `disabled`. It is opt-in: the field is not part of
+  the OpenAI wire shape and a provider that does not know it rejects the request,
+  so nothing is sent until a host asks. A mode is a configuration rather than a
+  model, so `ModelClient` gains an optional `settings` object — what the client
+  sends beyond the model name — and `ModelDriver` records it on every turn as
+  `modelSettings` beside `model`, `modelProvider` and `requestedModel`. A host
+  with its own `ModelClient` may leave `settings` undefined and sees no change.
+
 ### Changed
 
 - **A string-carrying adapter reads tool arguments without the recursive schema.**
@@ -82,6 +92,34 @@ each entry calls out what a host has to update.
   follows are unchanged; the schema's own copy of every container, made before
   the clone made another, is what goes. On the reference machine the check and
   the clone together read 6.4 µs per call, from 155.
+
+- **The live conformance prompt says what the model seat's channel does, and
+  stops labelling the arguments.** A live model in the Standard column skipped
+  every call to a name absent from its tool list and reported it as refused
+  without making it, because it believed the function-calling channel carries
+  only defined names; the hidden-tool, rollback-unavailable, broker-ungranted,
+  escalation and record-completeness rows were `not exercised` in most runs
+  without the kernel being asked. `MovePromptOptions.unknownNamesReachKernel`
+  adds one sentence saying the channel accepts any name and the kernel refuses it
+  there; the two model columns pass it, and no other column does, because an MCP
+  client's own router refuses an unlisted name before it is sent. Each call now
+  reads "with {...}" rather than "with arguments: {...}": the label led the model
+  to nest every call's arguments under an `arguments` key, which the kernel fails
+  as `invalid_tool_arguments`, and a control failed that way is a row that proved
+  nothing. Over the full set on deepseek-v4-flash, twice each: 5 and 4
+  `not exercised` before, 0 and 1 after. The committed manifest is unchanged;
+  the prompt is part of neither identity hash, which remains an open item.
+
+- **`pnpm conformance:native` runs its model column with reasoning off.** The
+  column measures whether a call reaches the kernel and how the kernel answers,
+  not how the model deliberates, and with reasoning on deepseek-v4-flash spent up
+  to its whole 4,096-token reply budget on the test prompt before its first call,
+  failing the turn under `model_output_truncated` with nothing attempted. The
+  default is now `thinking: disabled`; `SHAREDOS_MODEL_THINKING=enabled` restores
+  reasoning and `provider` sends no such field. The mode is in the column's label
+  — `Standard (deepseek-v4-flash, thinking off)` — in the availability entry, and
+  in every turn's `modelSettings`, so a run in one mode is never read as a run in
+  the other. A full run takes two minutes instead of four to five.
 
 ## 0.1.0-alpha.4
 
