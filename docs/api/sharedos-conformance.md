@@ -2006,36 +2006,36 @@ Defined in: [conformance/src/judge.ts:96](https://github.com/Aicoo-Team/SharedOS
 
 ### LiveColumnOptions
 
-Defined in: [conformance/src/columns.ts:756](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L756)
+Defined in: [conformance/src/columns.ts:761](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L761)
 
 #### Properties
 
 | Property                                                | Modifier   | Type                                                                       | Description                                                                                                                                                                                  | Defined in                                                                                                                  |
 | ------------------------------------------------------- | ---------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| <a id="property-createtransport"></a> `createTransport` | `readonly` | (`options`) => [`HarnessTransport`](sharedos-adapters.md#harnesstransport) | Opens the real harness. Kept as a callback so this package stays host-neutral: the process transport that spawns a CLI is Node-only and belongs to the caller, not to the conformance suite. | [conformance/src/columns.ts:765](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L765) |
-| <a id="property-id-3"></a> `id`                         | `readonly` | `string`                                                                   | -                                                                                                                                                                                            | [conformance/src/columns.ts:757](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L757) |
-| <a id="property-label-1"></a> `label`                   | `readonly` | `string`                                                                   | -                                                                                                                                                                                            | [conformance/src/columns.ts:758](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L758) |
-| <a id="property-protocol"></a> `protocol`               | `readonly` | [`HarnessProtocol`](sharedos-adapters.md#harnessprotocol)                  | -                                                                                                                                                                                            | [conformance/src/columns.ts:759](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L759) |
+| <a id="property-createtransport"></a> `createTransport` | `readonly` | (`options`) => [`HarnessTransport`](sharedos-adapters.md#harnesstransport) | Opens the real harness. Kept as a callback so this package stays host-neutral: the process transport that spawns a CLI is Node-only and belongs to the caller, not to the conformance suite. | [conformance/src/columns.ts:770](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L770) |
+| <a id="property-id-3"></a> `id`                         | `readonly` | `string`                                                                   | -                                                                                                                                                                                            | [conformance/src/columns.ts:762](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L762) |
+| <a id="property-label-1"></a> `label`                   | `readonly` | `string`                                                                   | -                                                                                                                                                                                            | [conformance/src/columns.ts:763](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L763) |
+| <a id="property-protocol"></a> `protocol`               | `readonly` | [`HarnessProtocol`](sharedos-adapters.md#harnessprotocol)                  | -                                                                                                                                                                                            | [conformance/src/columns.ts:764](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L764) |
 
 ---
 
 ### McpColumnOptions
 
-Defined in: [conformance/src/columns.ts:620](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L620)
+Defined in: [conformance/src/columns.ts:625](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L625)
 
 #### Properties
 
 | Property                                            | Modifier   | Type                                                                | Description                                                                                                                                                                                                                                                   | Defined in                                                                                                                  |
 | --------------------------------------------------- | ---------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| <a id="property-createruntime"></a> `createRuntime` | `readonly` | (`options`) => [`RuntimePlugin`](sharedos-runtime.md#runtimeplugin) | Builds the MCP-connected runtime for one turn. A callback because starting a loopback server and spawning a CLI is Node-only and belongs to the caller, exactly as the process transport does for [liveColumn](#livecolumn). This package stays host-neutral. | [conformance/src/columns.ts:630](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L630) |
-| <a id="property-id-4"></a> `id`                     | `readonly` | `string`                                                            | -                                                                                                                                                                                                                                                             | [conformance/src/columns.ts:621](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L621) |
-| <a id="property-label-2"></a> `label`               | `readonly` | `string`                                                            | -                                                                                                                                                                                                                                                             | [conformance/src/columns.ts:622](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L622) |
+| <a id="property-createruntime"></a> `createRuntime` | `readonly` | (`options`) => [`RuntimePlugin`](sharedos-runtime.md#runtimeplugin) | Builds the MCP-connected runtime for one turn. A callback because starting a loopback server and spawning a CLI is Node-only and belongs to the caller, exactly as the process transport does for [liveColumn](#livecolumn). This package stays host-neutral. | [conformance/src/columns.ts:635](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L635) |
+| <a id="property-id-4"></a> `id`                     | `readonly` | `string`                                                            | -                                                                                                                                                                                                                                                             | [conformance/src/columns.ts:626](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L626) |
+| <a id="property-label-2"></a> `label`               | `readonly` | `string`                                                            | -                                                                                                                                                                                                                                                             | [conformance/src/columns.ts:627](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L627) |
 
 ---
 
 ### McpColumnRuntimeOptions
 
-Defined in: [conformance/src/columns.ts:615](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L615)
+Defined in: [conformance/src/columns.ts:620](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L620)
 
 #### Extends
 
@@ -2046,35 +2046,36 @@ Defined in: [conformance/src/columns.ts:615](https://github.com/Aicoo-Team/Share
 | Property                                          | Modifier   | Type           | Description                                                              | Inherited from                                                                           | Defined in                                                                                                                  |
 | ------------------------------------------------- | ---------- | -------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | <a id="property-executionid-1"></a> `executionId` | `readonly` | `string`       | The execution identifier of that turn.                                   | [`RuntimeColumnOptions`](#runtimecolumnoptions).[`executionId`](#property-executionid-3) | [conformance/src/columns.ts:104](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L104) |
-| <a id="property-prompt"></a> `prompt`             | `readonly` | () => `string` | The declared attempts, written out for a harness that runs its own loop. | -                                                                                        | [conformance/src/columns.ts:617](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L617) |
+| <a id="property-prompt"></a> `prompt`             | `readonly` | () => `string` | The declared attempts, written out for a harness that runs its own loop. | -                                                                                        | [conformance/src/columns.ts:622](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L622) |
 | <a id="property-turn-2"></a> `turn`               | `readonly` | `number`       | Which turn of the case this plugin instance is running.                  | [`RuntimeColumnOptions`](#runtimecolumnoptions).[`turn`](#property-turn-5)               | [conformance/src/columns.ts:102](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L102) |
 
 ---
 
 ### ModelColumnOptions
 
-Defined in: [conformance/src/columns.ts:811](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L811)
+Defined in: [conformance/src/columns.ts:816](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L816)
 
 #### Properties
 
 | Property                              | Modifier   | Type                                              | Description                                                                                                                                                                               | Defined in                                                                                                                  |
 | ------------------------------------- | ---------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| <a id="property-client"></a> `client` | `readonly` | [`ModelClient`](sharedos-adapters.md#modelclient) | The model in the delegate seat. Supplied rather than constructed here so this package stays free of credentials and endpoints, exactly as the transport is for [liveColumn](#livecolumn). | [conformance/src/columns.ts:820](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L820) |
-| <a id="property-id-5"></a> `id`       | `readonly` | `string`                                          | -                                                                                                                                                                                         | [conformance/src/columns.ts:812](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L812) |
-| <a id="property-label-3"></a> `label` | `readonly` | `string`                                          | -                                                                                                                                                                                         | [conformance/src/columns.ts:813](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L813) |
+| <a id="property-client"></a> `client` | `readonly` | [`ModelClient`](sharedos-adapters.md#modelclient) | The model in the delegate seat. Supplied rather than constructed here so this package stays free of credentials and endpoints, exactly as the transport is for [liveColumn](#livecolumn). | [conformance/src/columns.ts:825](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L825) |
+| <a id="property-id-5"></a> `id`       | `readonly` | `string`                                          | -                                                                                                                                                                                         | [conformance/src/columns.ts:817](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L817) |
+| <a id="property-label-3"></a> `label` | `readonly` | `string`                                          | -                                                                                                                                                                                         | [conformance/src/columns.ts:818](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L818) |
 
 ---
 
 ### MovePromptOptions
 
-Defined in: [conformance/src/columns.ts:1074](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L1074)
+Defined in: [conformance/src/columns.ts:1080](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L1080)
 
 #### Properties
 
-| Property                                  | Modifier   | Type                                                                 | Defined in                                                                                                                    |
-| ----------------------------------------- | ---------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| <a id="property-context-1"></a> `context` | `readonly` | [`RuntimeVisibleContext`](sharedos-runtime.md#runtimevisiblecontext) | [conformance/src/columns.ts:1075](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L1075) |
-| <a id="property-turn-3"></a> `turn`       | `readonly` | `number`                                                             | [conformance/src/columns.ts:1076](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L1076) |
+| Property                                                                 | Modifier   | Type                                                                 | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Defined in                                                                                                                    |
+| ------------------------------------------------------------------------ | ---------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| <a id="property-context-1"></a> `context`                                | `readonly` | [`RuntimeVisibleContext`](sharedos-runtime.md#runtimevisiblecontext) | -                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | [conformance/src/columns.ts:1081](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L1081) |
+| <a id="property-turn-3"></a> `turn`                                      | `readonly` | `number`                                                             | -                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | [conformance/src/columns.ts:1082](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L1082) |
+| <a id="property-unknownnamesreachkernel"></a> `unknownNamesReachKernel?` | `readonly` | `boolean`                                                            | Say that the seat's tool-call channel carries any function name to the kernel. True of the model driver and of nothing else here: it passes back whatever name the model emits, so an uncatalogued call is issued and refused by the envelope. An MCP client's own router refuses an unlisted name before it is sent, so a column behind one must not say this. Left unsaid, a model that believes only defined functions can be called skips every uncatalogued attempt, reports it as refused, and the row about an unpublished name is graded `not exercised` without the kernel being asked. Measured on deepseek-v4-flash: the hidden-tool, rollback-unavailable, broker-ungranted, escalation, and record-completeness rows went from declined in most runs to issued in every one of ten. | [conformance/src/columns.ts:1097](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L1097) |
 
 ---
 
@@ -5610,7 +5611,7 @@ re-graded without re-running anything.
 
 > **liveColumn**(`options`): [`RuntimeColumn`](#runtimecolumn)
 
-Defined in: [conformance/src/columns.ts:783](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L783)
+Defined in: [conformance/src/columns.ts:788](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L788)
 
 A vendor adapter driven by the vendor's own CLI, over the real wire.
 
@@ -5642,7 +5643,7 @@ something that did not happen.
 
 > **liveReceiptsFromRecord**(`move`, `turn`): readonly `object`[]
 
-Defined in: [conformance/src/columns.ts:995](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L995)
+Defined in: [conformance/src/columns.ts:1001](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L1001)
 
 Recover what a live turn attempted, correlating on the call rather than its id.
 
@@ -5690,7 +5691,7 @@ readonly `object`[]
 
 > **mcpColumn**(`options`): [`RuntimeColumn`](#runtimecolumn)
 
-Defined in: [conformance/src/columns.ts:656](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L656)
+Defined in: [conformance/src/columns.ts:661](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L661)
 
 A vendor CLI running natively, against the SharedOS catalogue over MCP.
 
@@ -5730,7 +5731,7 @@ make the cell green would be measuring the prompt rather than the kernel.
 
 > **mcpHarnessLimits**(`move`, `condition`): [`ColumnLimits`](#columnlimits)
 
-Defined in: [conformance/src/columns.ts:721](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L721)
+Defined in: [conformance/src/columns.ts:726](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L726)
 
 What a natively-looping MCP harness cannot be tested on, and why.
 
@@ -5801,7 +5802,7 @@ throwing.
 
 > **modelColumn**(`options`): [`RuntimeColumn`](#runtimecolumn)
 
-Defined in: [conformance/src/columns.ts:939](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L939)
+Defined in: [conformance/src/columns.ts:944](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L944)
 
 A model API in the delegate seat, with no vendor between it and the kernel.
 
@@ -5856,7 +5857,7 @@ manifest would have suppressed had the column declared the row unreachable.
 
 > **modelLimits**(`move`, `condition`): [`ColumnLimits`](#columnlimits)
 
-Defined in: [conformance/src/columns.ts:864](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L864)
+Defined in: [conformance/src/columns.ts:869](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L869)
 
 What a model in the delegate seat cannot be tested on, and why.
 
@@ -5992,7 +5993,7 @@ lacks.
 
 > **movesToPrompt**(`moves`, `options`): `string`
 
-Defined in: [conformance/src/columns.ts:1092](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L1092)
+Defined in: [conformance/src/columns.ts:1113](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L1113)
 
 The declared attempts, written out as instructions a live harness can follow.
 
@@ -6181,7 +6182,7 @@ readonly `object`[]
 
 > **receiptsFromRecord**(`move`, `turn`): readonly `object`[]
 
-Defined in: [conformance/src/columns.ts:573](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L573)
+Defined in: [conformance/src/columns.ts:578](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/conformance/src/columns.ts#L578)
 
 Recover what a turn attempted from its execution record alone.
 

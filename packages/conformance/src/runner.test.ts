@@ -1434,6 +1434,21 @@ describe("the prompt a live column issues", () => {
     // say so: a harness that stopped at the first denial would leave the rest of
     // the row unreached and report as a broken column.
     expect(prompt).toMatch(/refusal is the expected result/u);
+    // Each call is "with {...}". Labelling the object "arguments:" led a model
+    // to nest it under an `arguments` key, and the kernel failed the control.
+    expect(prompt).not.toMatch(/with arguments:/u);
+  });
+
+  it("says the channel carries any name to the kernel only for a seat where that is true", () => {
+    const move = canonicalMove("hidden_tool");
+    const options = { context: conformanceRuntimeContext(1), turn: 1 };
+
+    // An MCP client's router refuses an unlisted name before it is sent, so the
+    // default prompt must not claim otherwise.
+    expect(movesToPrompt([move], options)).not.toMatch(/accepts any function name/u);
+    expect(movesToPrompt([move], { ...options, unknownNamesReachKernel: true })).toMatch(
+      /accepts any function name/u,
+    );
   });
 });
 
