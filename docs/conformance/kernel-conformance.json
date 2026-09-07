@@ -10,7 +10,8 @@
     },
     {
       "id": "model-scripted",
-      "label": "Standard"
+      "label": "Standard",
+      "promptSetHash": "3d9b13b181d70820022236bf723372dbef016046181325b07fdd7f883522d1ea"
     },
     {
       "id": "codex-scripted",

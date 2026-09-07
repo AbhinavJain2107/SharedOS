@@ -14,6 +14,9 @@ import {
 import { hashJson } from "./hashing.js";
 import { judgeCase } from "./judge.js";
 import {
+  ModelDriver,
+  ModelRuntime,
+  TranscriptModelClient,
   claudeCodeFrameWriter,
   claudeCodeProtocol,
   codexFrameWriter,
@@ -46,6 +49,7 @@ import {
   runConformanceSuite,
   strictFailures,
   worldSetIdentity,
+  type ConformanceManifest,
 } from "./runner.js";
 import {
   CANONICAL_CONFORMANCE_CASES,
@@ -852,6 +856,79 @@ describe("the conformance suite", () => {
     expect(full.manifest.worldSetHash).toMatch(/^[0-9a-f]{64}$/u);
     expect(full.manifest.worldSetHash).not.toBe(full.manifest.caseSetHash);
     expect(partial.manifest.worldSetHash).not.toBe(full.manifest.worldSetHash);
+  });
+
+  /**
+   * How the seat was asked is the third identifier, and it is per column.
+   *
+   * Only the column that hands the seat text carries one: the Standard column
+   * builds the prompt a live model would be shown and its driver hashes it, so
+   * the committed manifest pins the question and `conformance:check` moves when
+   * the wording does. The adversary issues its attempts itself, and the vendor
+   * columns are driven by frames written for them, so neither tells the seat
+   * anything and neither claims a hash over it.
+   */
+  it("names what each column told the seat, and only for columns that told it something", async () => {
+    const cases = [CANONICAL_CONFORMANCE_CASES[0] as ConformanceCase];
+    const reworded: RuntimeColumn = {
+      ...MODEL_SCRIPTED_COLUMN,
+      id: "model-reworded",
+      label: "Reworded",
+      create: (moves, create) => {
+        const options = {
+          executionId: create.executionId,
+          turn: create.turn,
+          context: conformanceRuntimeContext(create.turn),
+        };
+        return new ModelRuntime(
+          new ModelDriver({
+            manifest: { id: "sharedos.test.reworded", version: "1.0.0", protocolVersion: "1" },
+            client: new TranscriptModelClient(movesToModelTranscript(moves, options), {
+              provider: "sharedos-conformance",
+            }),
+            // The same attempts, asked without the channel sentence: a different
+            // question to the model and an identical case set and world set.
+            prompt: () => movesToPrompt(moves, { context: options.context, turn: options.turn }),
+          }),
+        );
+      },
+    };
+    const columns = [ADVERSARY_COLUMN, MODEL_SCRIPTED_COLUMN, CODEX_SCRIPTED_COLUMN, reworded];
+    const run = await runConformanceSuite({ cases, columns });
+    const again = await runConformanceSuite({ cases, columns });
+    const identity = (manifest: ConformanceManifest, id: string) =>
+      manifest.columns.find((column) => column.id === id)?.promptSetHash;
+
+    expect(identity(run.manifest, MODEL_SCRIPTED_COLUMN.id)).toMatch(/^[0-9a-f]{64}$/u);
+    expect(identity(run.manifest, ADVERSARY_COLUMN.id)).toBeUndefined();
+    expect(identity(run.manifest, CODEX_SCRIPTED_COLUMN.id)).toBeUndefined();
+
+    // Same cases, same worlds, different wording: only the prompt set moves.
+    expect(run.manifest.caseSetHash).toBe(again.manifest.caseSetHash);
+    expect(identity(run.manifest, "model-reworded")).toMatch(/^[0-9a-f]{64}$/u);
+    expect(identity(run.manifest, "model-reworded")).not.toBe(
+      identity(run.manifest, MODEL_SCRIPTED_COLUMN.id),
+    );
+    // And it is a function of what was sent, not of when: two runs agree.
+    expect(identity(again.manifest, MODEL_SCRIPTED_COLUMN.id)).toBe(
+      identity(run.manifest, MODEL_SCRIPTED_COLUMN.id),
+    );
+    // Every record behind it carries the hash it was folded from.
+    for (const entry of run.evidence.filter(
+      ({ columnId }) => columnId === MODEL_SCRIPTED_COLUMN.id,
+    )) {
+      for (const record of entry.records) {
+        expect(record.system.promptHash).toMatch(/^[0-9a-f]{64}$/u);
+      }
+    }
+    // A different set of rows is a different set of questions.
+    const full = await runConformanceSuite({ columns: [ADVERSARY_COLUMN, MODEL_SCRIPTED_COLUMN] });
+    expect(identity(full.manifest, MODEL_SCRIPTED_COLUMN.id)).not.toBe(
+      identity(run.manifest, MODEL_SCRIPTED_COLUMN.id),
+    );
+    expect(renderConformanceSummary(full.manifest)).toContain(
+      `- Prompt set, \`Standard\`: \`${identity(full.manifest, MODEL_SCRIPTED_COLUMN.id)}\``,
+    );
   });
 });
 

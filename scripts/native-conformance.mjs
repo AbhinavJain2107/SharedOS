@@ -510,6 +510,20 @@ for (const column of manifest.columns) {
   console.log(
     `  ${"".padEnd(28)} model: ` + (models.length === 0 ? "not declared" : models.join(", ")),
   );
+  console.log(`  ${"".padEnd(28)} prompt set: ${promptSet(column)}`);
+}
+
+/**
+ * What the column told the seat, as the manifest identifies it.
+ *
+ * Printed beside the model because the two are read together: a cell that
+ * moved between two runs of one column is the model's choice only if the seat
+ * was asked the same thing both times, and this is the check.
+ */
+function promptSet(column) {
+  return column.promptSetHash === undefined
+    ? "none (this column tells the seat nothing)"
+    : `sha256:${column.promptSetHash.slice(0, 12)}…`;
 }
 
 const failures = strictFailures(manifest);

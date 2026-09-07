@@ -27,6 +27,7 @@ live session. Live-run columns are a separate claim and are not made here.
 - World set: `67a081ea4f61d8eaa70bad83aa490f83de0ec2fb983baf78c45853444d5eb31a`
 - Grading rules: version `4`
 - Columns: `Adversary`, `Standard`, `Codex`, `Claude Code`, `DeepSeek`, `Pi`
+- Prompt set, `Standard`: `3d9b13b181d70820022236bf723372dbef016046181325b07fdd7f883522d1ea`
 
 The case-set hash covers the declarations only: ids, tools, arguments,
 conditions, expectations, and the markers that decide whether an attempt is
@@ -39,6 +40,16 @@ of every registered tool. It is separate because a world can be rewritten
 without a case changing, and two runs are comparable only when both hashes
 match. Tool prose is inside this one: a description and an input schema are
 served to the model, so rewording them is a different world.
+
+The prompt-set hash covers how the seat was asked: what the column's runtime
+told it before each turn -- the turn's reach as a system message or as MCP
+initialize instructions, and the prompt written from the declared attempts --
+taken from each turn's record rather than from the code that wrote it. It is
+per column, because the wording differs by design between a seat whose
+channel carries any name and one behind an MCP router, and a column that
+tells the seat nothing carries none. A live run of a column is comparable to
+the last one on the model's choices only when this hash matches too: a
+reworded prompt is a different question, not a different kernel.
 
 A cell is `pass` only when every declared attempt met its expected outcome and
 every control attempt succeeded. `not exercised` means the attempt -- or, on a

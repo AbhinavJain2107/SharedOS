@@ -59,6 +59,30 @@ each entry calls out what a host has to update.
   `modelSettings` beside `model`, `modelProvider` and `requestedModel`. A host
   with its own `ModelClient` may leave `settings` undefined and sees no change.
 
+- **A turn records what the seat was told, and the manifest names it per column.**
+  The catalogue a model was served has carried a hash on every record since the
+  MCP bridge existed; the prompt it was given carried none, so rewording it moved
+  nothing on disk, and a cell that moved between two runs could not be told apart
+  from the model changing its mind. One sentence about what the tool-call channel
+  carries took five `not exercised` cells to none on the same model, and neither
+  run said it had asked a different question. Both shipped runtimes now compute
+  `promptHash` before the seat is sent anything, over the same two texts in the
+  same shape — `{instructions, prompt}` in canonical JSON, `instructions` being
+  the reach as `ModelDriver`'s system message or as `createMcpHarnessRuntime`'s
+  initialize instructions, `null` when the host sends none — and it lands in
+  `SystemIdentity.promptHash` beside `catalogHash`. The conformance manifest folds
+  each column's per-turn hashes, in row order, into `promptSetHash` on the column
+  entry, so the committed manifest pins the question the Standard column is asked
+  and `conformance:check` moves when the wording does. Columns that hand the seat
+  no text — the adversary, a vendor column driven by written frames — carry none.
+  The live scripts print it beside the model. It covers what SharedOS said: a
+  CLI's own system prompt is added on the far side of the wire and is not claimed.
+
+  **What a host has to update.** Nothing. `promptHash` and `promptSetHash` are
+  optional additions. A host comparing two live runs of one column should now
+  hold `promptSetHash` equal along with the case-set and world-set hashes before
+  reading a moved cell as the model's choice.
+
 ### Changed
 
 - **A string-carrying adapter reads tool arguments without the recursive schema.**
@@ -107,8 +131,9 @@ each entry calls out what a host has to update.
   to nest every call's arguments under an `arguments` key, which the kernel fails
   as `invalid_tool_arguments`, and a control failed that way is a row that proved
   nothing. Over the full set on deepseek-v4-flash, twice each: 5 and 4
-  `not exercised` before, 0 and 1 after. The committed manifest is unchanged;
-  the prompt is part of neither identity hash, which remains an open item.
+  `not exercised` before, 0 and 1 after. `promptSetHash`, now added above, covers
+  the prompt, and the Standard column's entry in the committed manifest pins this
+  wording.
 
 - **`pnpm conformance:native` runs its model column with reasoning off.** The
   column measures whether a call reaches the kernel and how the kernel answers,

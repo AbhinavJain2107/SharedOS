@@ -151,6 +151,30 @@ that is explained. It also catches schema drift, a missing tool, a renamed tool,
 and a stale discovery cache — failures that otherwise look like a harness
 behaving differently.
 
+## Prompt hash
+
+```
+promptHash = SHA-256(canonical JSON({ instructions, prompt }))
+```
+
+The catalogue is one of two things the model reads; the other is what it is
+told. `instructions` is the seat's environment — the turn's reach rendered by
+`describeReach`, sent as the MCP server's initialize instructions here and as a
+system message by the model driver — and `prompt` is the task the harness was
+launched with. `instructions` is `null` when the host sent none.
+
+Both shipped runtimes compute it, in this one shape, before the seat is sent
+anything, and it lands in `SystemIdentity` beside `catalogHash`. The same words
+carry the same hash whichever runtime said them. It covers what SharedOS said:
+a CLI's own system prompt is added on the far side of the wire and is not
+claimed.
+
+It exists for the comparison `catalogHash` does not cover. Two runs of one
+column that differ only in wording are asking the model different questions,
+and a cell that moved between them is not the model choosing differently. The
+conformance manifest folds each column's per-turn hashes into a prompt-set hash
+so that check is one field per column rather than one per record.
+
 ## Tool classes
 
 | Class             | Example                         | SharedOS authorized? | Recommendation                                   |

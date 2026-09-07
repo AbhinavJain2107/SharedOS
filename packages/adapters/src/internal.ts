@@ -1,4 +1,5 @@
 import type { JsonObject, JsonValue, ProtocolError, ToolResult } from "@aicoo/sharedos-contracts";
+import { hashJson } from "@aicoo/sharedos-core";
 
 /** The prompt a turn's message becomes when a driver is given no `prompt` override. */
 export function defaultPrompt(request: {
@@ -15,6 +16,28 @@ export function defaultPrompt(request: {
     }
   }
   return JSON.stringify(payload);
+}
+
+/**
+ * What a runtime handed the seat as text before the turn began, as one identity.
+ *
+ * `instructions` is what the seat is told about where it is -- a model driver's
+ * system message, an MCP server's initialize instructions -- and `prompt` is the
+ * task. Hashed together, in one shape, by both shipped runtimes, so the same
+ * words carry the same hash whichever runtime said them, and two runs of one
+ * column can be checked to have told the seat the same thing before a moved
+ * cell is credited to the model. A reworded prompt is a different question, and
+ * the record is where that has to be visible: the catalogue already carries a
+ * hash for the same reason, and the prompt is the other thing the model reads.
+ *
+ * It covers what SharedOS said, and only that. A CLI's own system prompt is
+ * added on the far side of the wire and never seen here, so it is not claimed.
+ */
+export async function handedPromptHash(
+  instructions: string | undefined,
+  prompt: string,
+): Promise<string> {
+  return hashJson({ instructions: instructions ?? null, prompt });
 }
 
 /**
