@@ -124,7 +124,14 @@ describe("a transcript in the model seat", () => {
     // The second reply was released only after the first call was answered,
     // and the driver showed the answer to the "model" before asking again.
     expect(client.seen).toHaveLength(2);
-    expect(client.seen[1]?.messages.map(({ role }) => role)).toEqual(["user", "assistant", "tool"]);
+    // The system message is the turn's reach, said before the prompt on every
+    // model call; see `ModelDriverOptions.instructions`.
+    expect(client.seen[1]?.messages.map(({ role }) => role)).toEqual([
+      "system",
+      "user",
+      "assistant",
+      "tool",
+    ]);
     // What the record names is the transcript, not a model that never ran.
     expect(result.metadata).toMatchObject({
       model: "transcript",

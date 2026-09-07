@@ -10,6 +10,27 @@ each entry calls out what a host has to update.
 
 ### Added
 
+- **The shipped runtimes tell the model where it may operate.**
+  `RuntimeVisibleContext.reach` was handed to every runtime and read by none, so a
+  model still searched from the root and collected denials, which is the problem
+  the field was added to end. `describeReach`, exported from
+  `@aicoo/sharedos-runtime`, renders the result as words: each entry as its
+  namespace, its path as the JSON array a `path` argument takes, and whether it
+  covers what lies beneath; an empty reach as "nowhere"; an `unavailable` one as
+  exactly that, with its reason code, so "unknown" never reads as "nothing" (ADR
+  0021). `ModelDriver` sends it as a system message ahead of the prompt, and
+  `createMcpHarnessRuntime` hands it to the harness as the MCP server's initialize
+  instructions, with the host's own `instructions` string placed before it. Both
+  are overridable: `ModelDriverOptions.instructions` is a function of the turn
+  request, `McpHarnessRuntimeOptions.instructions` now also accepts one, and
+  returning `undefined` sends nothing. A host writing its own driver can call
+  `describeReach` and say the same thing the same way.
+
+  **What a host has to update.** A model transcript or a test that pinned the
+  first message to the prompt now sees a system message before it. A harness that
+  does not surface MCP instructions shows its model the catalogue alone, which is
+  what it saw before.
+
 - **Every `AuditEvent` carries an `id`.** A record's identity was its content: the
   kernel stamps `at` from the turn's `AccessContext.now`, a bare `authorize` carries
   no `operationId`, and nothing else on the record distinguishes one emission from

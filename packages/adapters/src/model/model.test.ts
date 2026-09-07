@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { ExecutionRequest, ExecutionResult, ToolDefinition } from "@aicoo/sharedos-contracts";
+import type {
+  ExecutionRequest,
+  ExecutionResult,
+  ReachResult,
+  ToolDefinition,
+} from "@aicoo/sharedos-contracts";
 import { agentExecutionCapability } from "@aicoo/sharedos-core";
 import {
   ESCALATION_ACTION,
@@ -10,6 +15,7 @@ import {
   SharedOSExecutor,
   StandardRuntime,
   type AgentTurnDriver,
+  type RuntimeTurnRequest,
   createEscalationTool,
 } from "@aicoo/sharedos-runtime";
 import { createTestGrant, createTestKernel } from "@aicoo/sharedos-testkit";
@@ -24,6 +30,7 @@ import {
   readModelToolCall,
   type ModelClient,
   type ModelCompletionRequest,
+  type ModelDriverOptions,
   type ModelReply,
 } from "./index.js";
 
@@ -80,6 +87,23 @@ function request(): ExecutionRequest {
       createdAt: NOW,
     },
     tools: [READ_TOOL, ESCALATION_TOOL_DEFINITION],
+  };
+}
+
+/** The same turn as the runtime sees it: the context sanitised, with the reach the envelope computed. */
+function turnRequest(reach: ReachResult = { status: "computed", reach: [] }): RuntimeTurnRequest {
+  const { context, ...rest } = request();
+  return {
+    ...rest,
+    context: {
+      actor: context.actor,
+      owner: context.owner,
+      namespaceId: context.namespaceId,
+      purpose: context.purpose,
+      traceId: context.traceId,
+      now: context.now,
+      reach,
+    },
   };
 }
 
@@ -165,7 +189,12 @@ function testKernel(options: { readonly escalation?: boolean } = {}) {
 
 async function runWith(
   client: ModelClient,
-  options: { maxSteps?: number; maxMalformedCalls?: number; escalation?: boolean } = {},
+  options: {
+    maxSteps?: number;
+    maxMalformedCalls?: number;
+    escalation?: boolean;
+    instructions?: ModelDriverOptions["instructions"];
+  } = {},
 ) {
   const { kernel, audit } = testKernel(options);
   const runtime = new ModelRuntime(
@@ -175,6 +204,7 @@ async function runWith(
       ...(options.maxMalformedCalls === undefined
         ? {}
         : { maxMalformedCalls: options.maxMalformedCalls }),
+      ...(options.instructions === undefined ? {} : { instructions: options.instructions }),
     }),
   );
   const result = await new SharedOSExecutor(kernel, runtime, { clock: () => NOW }).execute(
@@ -699,7 +729,7 @@ describe("a model driving a SharedOS turn", () => {
       },
     ]);
     const session = await new ModelDriver({ manifest: MANIFEST, client }).open(
-      request() as never,
+      turnRequest(),
       new AbortController().signal,
     );
     expect(session.close).toBeUndefined();
@@ -850,6 +880,70 @@ describe("a model driving a SharedOS turn", () => {
       model: "test-model",
       inputTokens: 40,
       outputTokens: 12,
+    });
+  });
+});
+
+/**
+ * What the model is told before its prompt.
+ *
+ * The executor hands the runtime where the turn may operate; the driver is
+ * where that reaches a model. It goes in as a system message ahead of the
+ * task, rendered by `describeReach`, so the model can point at a granted path
+ * rather than search from the root and collect denials. Nothing here is a
+ * permission -- every call the model then makes is decided by the kernel --
+ * which the text itself says.
+ */
+describe("what the model is told about where it may operate", () => {
+  it("is shown its reach as a system message, ahead of the prompt", async () => {
+    const client = scriptedClient([{ text: "done", toolCalls: [] }]);
+
+    await runWith(client);
+
+    const [system, user] = client.seen[0]?.messages ?? [];
+    expect(system?.role).toBe("system");
+    // The one path the test grant covers, in the shape a `path` argument takes,
+    // and the caveat that makes it safe to say at all.
+    expect(system?.content).toContain('- files ["Workspace"] and everything beneath it: read');
+    expect(system?.content).toContain("every call is still decided on its own");
+    expect(user).toEqual({ role: "user", content: "read the workspace" });
+  });
+
+  it("is told the reach could not be established rather than shown an empty list", async () => {
+    const client = scriptedClient([{ text: "done", toolCalls: [] }]);
+    const turn = turnRequest({ status: "unavailable", reasonCode: "usage_store_unavailable" });
+    const signal = new AbortController().signal;
+
+    const session = await new ModelDriver({ manifest: MANIFEST, client }).open(turn, signal);
+    await session.next({ type: "start" }, signal);
+
+    const system = client.seen[0]?.messages[0];
+    expect(system?.role).toBe("system");
+    expect(system?.content).toContain("usage_store_unavailable");
+    expect(system?.content).toContain("This is not an empty list");
+    expect(system?.content).not.toContain("nowhere");
+  });
+
+  it("sends no system message when the host's instructions say so", async () => {
+    const client = scriptedClient([{ text: "done", toolCalls: [] }]);
+
+    await runWith(client, { instructions: () => undefined });
+
+    expect(client.seen[0]?.messages).toEqual([{ role: "user", content: "read the workspace" }]);
+  });
+
+  it("lets the host say what the model is told, from the request it is given", async () => {
+    const client = scriptedClient([{ text: "done", toolCalls: [] }]);
+    const instructions = vi.fn(
+      (turn: RuntimeTurnRequest) => `reach status: ${turn.context.reach.status}`,
+    );
+
+    await runWith(client, { instructions });
+
+    expect(instructions).toHaveBeenCalledTimes(1);
+    expect(client.seen[0]?.messages[0]).toEqual({
+      role: "system",
+      content: "reach status: computed",
     });
   });
 });

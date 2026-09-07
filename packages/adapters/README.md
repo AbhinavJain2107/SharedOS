@@ -48,6 +48,28 @@ catalogue over the Model Context Protocol instead; it is documented in
 `docs/mcp-toolshare.md`. All of them converge on
 `RuntimeHost.invokeTool`, which is the only place a tool is executed.
 
+## What the delegate is told
+
+The catalogue says which tools exist; `RuntimeVisibleContext.reach` says where
+they are worth pointing. The execution envelope computes it once per turn, from
+the grants every decision in that turn is made against, narrowed to the
+namespaces the offered tools operate on. The adapters are where it reaches a
+model:
+
+| Path                    | Where the reach goes                                                                                                                                        |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Driven model            | A system message ahead of the prompt, rendered by `describeReach`; `ModelDriverOptions.instructions` overrides it                                           |
+| Native harness over MCP | The server's initialize `instructions`, after any standing text the host set; `McpHarnessRuntimeOptions.instructions` may be a function of the turn request |
+| Driven harness          | The `context` field of the opening `HarnessTurnRequest`, for the harness's own protocol to render                                                           |
+
+`describeReach`, from `@aicoo/sharedos-runtime`, says the same thing on every
+path: each entry as its namespace, its path as the JSON array a `path` argument
+takes, and whether it covers what lies beneath; an empty reach as "nowhere"; an
+`unavailable` reach as exactly that, with its reason code, never as an empty
+list. Every rendering says it is descriptive. The kernel decides each call the
+model goes on to make, so an entry is not a permission and a missing one is not
+a refusal.
+
 ## The three pieces of a driven harness
 
 An adapter is assembled from parts that are replaceable independently, which is

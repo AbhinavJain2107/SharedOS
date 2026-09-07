@@ -26,6 +26,7 @@ import {
 } from "@aicoo/sharedos-mcp";
 import { createStreamableHttpMcpServer } from "@aicoo/sharedos-mcp/node";
 import {
+  describeReach,
   escalationAskedEvent,
   escalationOffered,
   escalationRequest,
@@ -126,8 +127,23 @@ export interface McpHarnessSpec {
 export interface McpHarnessRuntimeOptions {
   /** Overrides the manifest, so a conformance column can name itself. */
   readonly manifest?: RuntimeManifest;
-  /** Guidance handed to the harness at MCP initialize time. */
-  readonly instructions?: string;
+  /**
+   * Guidance handed to the harness at MCP initialize time.
+   *
+   * The initialize `instructions` field is the seat MCP gives a server for
+   * saying how its tools are meant to be used, and a harness that honours it
+   * puts the text where the model reads it. Per turn it carries where the
+   * turn may operate -- `request.context.reach` rendered by `describeReach`
+   * -- so the model is told where to point the catalogue rather than search
+   * for it. A string here is the host's standing guidance, placed before the
+   * turn's reach. A function replaces the composition and says exactly what
+   * the harness is told; returning `undefined` hands over no instructions.
+   *
+   * Whether the model sees it is the harness's doing: Claude Code surfaces
+   * server instructions, and a harness that does not leaves the model with
+   * the catalogue alone, which is what it had before.
+   */
+  readonly instructions?: string | ((request: RuntimeTurnRequest) => string | undefined);
   readonly prompt?: (request: RuntimeTurnRequest) => string;
   /** Where the per-turn scratch workspace is created. */
   readonly workspaceRoot?: string;
@@ -204,13 +220,14 @@ export function createMcpHarnessRuntime(
         tools: request.tools,
         host: escalation,
       });
+      const instructions = turnInstructions(options.instructions, request);
       const server = new McpToolServer({
         invoker: bridge,
         serverInfo: {
           name: spec.serverName ?? SHAREDOS_MCP_SERVER_NAME,
           version: manifest.version,
         },
-        ...(options.instructions === undefined ? {} : { instructions: options.instructions }),
+        ...(instructions === undefined ? {} : { instructions }),
       });
 
       const http = await createStreamableHttpMcpServer({
@@ -815,5 +832,22 @@ export const PI_MCP_HARNESS: McpHarnessSpec = Object.freeze<McpHarnessSpec>({
     keepStdinOpen: true,
   }),
 });
+
+/**
+ * What one turn's server says at initialize; see `McpHarnessRuntimeOptions.instructions`.
+ *
+ * The host's standing text first, then the turn's reach, so a harness that
+ * shows the model one block reads the guidance before the map.
+ */
+function turnInstructions(
+  configured: McpHarnessRuntimeOptions["instructions"],
+  request: RuntimeTurnRequest,
+): string | undefined {
+  if (typeof configured === "function") {
+    return configured(request);
+  }
+  const reach = describeReach(request.context.reach);
+  return configured === undefined ? reach : `${configured}\n\n${reach}`;
+}
 
 export { claudeAgentSdkMcpOptions };
