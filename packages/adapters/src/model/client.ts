@@ -93,6 +93,14 @@ export interface ModelClient {
   readonly model: string;
   /** The provider that serves it, recorded alongside the model on every turn. */
   readonly provider: string;
+  /**
+   * Settings this client sends that change what the model does, beyond naming
+   * it -- a reasoning mode, say. Recorded on every turn beside the model so two
+   * runs under one model name are not read as the same configuration when they
+   * were not. Absent when the client sends nothing the provider would not
+   * default to.
+   */
+  readonly settings?: JsonObject;
   complete(request: ModelCompletionRequest, signal: AbortSignal): Promise<ModelReply>;
 }
 
@@ -164,6 +172,14 @@ export interface OpenAiCompatibleModelClientOptions {
   readonly temperature?: number;
   /** How long one model call may take, independently of the turn's own budget. */
   readonly requestTimeoutMs?: number;
+  /**
+   * Whether the model reasons before it answers, sent as DeepSeek's `thinking`
+   * request field. Opt-in: the field is not part of the OpenAI wire shape, and
+   * a provider that does not know it rejects the request, so nothing is sent
+   * until a host asks. When set it is reported through {@link ModelClient.settings}
+   * so the turn's record says which mode the model ran in.
+   */
+  readonly thinking?: "enabled" | "disabled";
   /** Injected for tests, which must never reach a network. */
   readonly fetch?: typeof globalThis.fetch;
 }
@@ -198,7 +214,9 @@ const RETRY_DELAY_MS = 1_500;
 export class OpenAiCompatibleModelClient implements ModelClient {
   readonly model: string;
   readonly provider: string;
+  readonly settings?: JsonObject;
   readonly #apiKey: string;
+  readonly #thinking?: "enabled" | "disabled";
   readonly #baseUrl: string;
   readonly #maxOutputTokens: number;
   readonly #temperature: number;
@@ -217,6 +235,10 @@ export class OpenAiCompatibleModelClient implements ModelClient {
     this.#temperature = options.temperature ?? 0;
     this.#requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
     this.#fetch = options.fetch ?? globalThis.fetch.bind(globalThis);
+    if (options.thinking !== undefined) {
+      this.#thinking = options.thinking;
+      this.settings = { thinking: options.thinking };
+    }
   }
 
   async complete(request: ModelCompletionRequest, signal: AbortSignal): Promise<ModelReply> {
@@ -238,6 +260,7 @@ export class OpenAiCompatibleModelClient implements ModelClient {
           }),
       max_tokens: this.#maxOutputTokens,
       temperature: this.#temperature,
+      ...(this.#thinking === undefined ? {} : { thinking: { type: this.#thinking } }),
     });
 
     let lastError: ModelRequestError | undefined;
