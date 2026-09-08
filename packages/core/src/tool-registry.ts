@@ -65,16 +65,20 @@ export class ToolRegistry {
           }),
     };
 
-    this.#tools.set(name, registered);
+    // Frozen because `copy()` shares this object rather than rebuilding it.
+    // Re-registering used to make every derived registry a fresh snapshot; a
+    // shared mutable entry would instead let a swapped `definition` or `invoke`
+    // reach back into the registry it was copied from.
+    this.#tools.set(name, Object.freeze(registered));
   }
 
   /**
    * A registry holding the same registrations as this one.
    *
    * The entries are shared, not re-registered. Every one of them has already
-   * been contract-validated, cloned and deep-frozen by {@link register}, and
-   * what that produced is immutable, so re-deriving it spends one schema parse
-   * and one JSON round trip per tool to arrive at an equal value. That was
+   * been contract-validated, cloned and deep-frozen by {@link register}, which
+   * also freezes the entry itself, so re-deriving one spends a schema parse and
+   * a JSON round trip to arrive at a value equal to the one already held. That was
    * being paid on the path of every mediated call, where the kernel builds the
    * effective catalogue by re-registering its whole static registry.
    *

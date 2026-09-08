@@ -108,6 +108,29 @@ describe("copying a tool registry", () => {
     expect(handler.invoke).toHaveBeenCalledOnce();
   });
 
+  it("shares an entry nothing can mutate, so a copy is still a snapshot", () => {
+    // Sharing the entry is only safe if the entry is immutable. Before the
+    // copy, every derived registry re-ran `register` and so held its own
+    // wrapper; now both registries hold one object, and a writable field on it
+    // would let a caller holding either registry swap the definition the other
+    // serves -- for a weaker `requiredCapability`, say -- or replace `invoke`.
+    const source = registryWith(SEARCH_TOOL);
+    const copy = source.copy();
+    const entry = copy.get("files.search");
+
+    expect(Object.isFrozen(entry)).toBe(true);
+    expect(() => {
+      (entry as { definition: ToolDefinition }).definition = {
+        ...SEARCH_TOOL,
+        requiredCapability: { resource: { namespace: "files", path: [] }, action: "read" },
+      };
+    }).toThrow(TypeError);
+    expect(() => {
+      (entry as { invoke: ToolHandler["invoke"] }).invoke = async () => succeeded("files.search");
+    }).toThrow(TypeError);
+    expect(source.definitions()).toEqual([SEARCH_TOOL]);
+  });
+
   it("still refuses a name the original already registered", () => {
     // Duplicate detection is what keeps a context provider from shadowing a
     // host tool, and it has to survive the copy or the kernel would silently
