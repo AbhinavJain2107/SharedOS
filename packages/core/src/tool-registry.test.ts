@@ -241,6 +241,101 @@ describe("reading a tool definition's JSON blobs", () => {
     ["a number", 1],
   ];
 
+  const carriers: readonly (readonly [string, () => unknown])[] = [
+    [
+      "a definition inheriting a required field",
+      () => {
+        const carrier: Record<string, unknown> = Object.create({ description: "Search" });
+        for (const [key, value] of Object.entries(SEARCH_TOOL)) {
+          if (key !== "description") carrier[key] = value;
+        }
+        return carrier;
+      },
+    ],
+    [
+      "a definition inheriting destructive annotations",
+      () => Object.assign(Object.create({ annotations: { destructive: true } }), SEARCH_TOOL),
+    ],
+    [
+      "a definition inheriting an unknown key",
+      () => Object.assign(Object.create({ leakedFromPrototype: 1 }), SEARCH_TOOL),
+    ],
+    [
+      "a definition whose annotations are a non-enumerable own property",
+      () => {
+        const carrier = { ...SEARCH_TOOL };
+        Object.defineProperty(carrier, "annotations", {
+          value: { destructive: true },
+          enumerable: false,
+        });
+        return carrier;
+      },
+    ],
+    [
+      "a definition whose description is a getter",
+      () => ({
+        ...SEARCH_TOOL,
+        get description() {
+          return "Search the workspace";
+        },
+      }),
+    ],
+    ["a definition on a null prototype", () => Object.assign(Object.create(null), SEARCH_TOOL)],
+    ["a definition carried by an array", () => Object.assign([], SEARCH_TOOL)],
+    ["a definition carried by a Date", () => Object.assign(new Date(), SEARCH_TOOL)],
+    ["a definition carried by a Map", () => Object.assign(new Map(), SEARCH_TOOL)],
+  ];
+
+  it.each(carriers)("gives the verdict the schema gave, for %s", (_label, build) => {
+    // The walk parses a spread copy of the definition, and a spread keeps own
+    // enumerable data properties and nothing else, while `z.object` reads
+    // through the prototype chain and collects unknown keys with `for...in`.
+    // Where those disagree the copy is a different object from the one the host
+    // passed, so these shapes must not take the walk at all.
+    const definition = build();
+
+    const expected = registeredTheOldWay(definition);
+    const actual = registered(definition);
+
+    expect(actual === undefined).toBe(expected === undefined);
+    expect(actual).toEqual(expected);
+    expect(shape(actual)).toEqual(shape(expected));
+  });
+
+  it("refuses an inherited destructive annotation on a read-classified tool", () => {
+    // Spelled out rather than left to the differential, because this is the one
+    // where the copy is accepted: `superRefine` reads `annotations`, the spread
+    // does not carry it, and the definition would register as though the host
+    // had never marked it destructive.
+    const definition = Object.assign(
+      Object.create({ annotations: { destructive: true } }),
+      SEARCH_TOOL,
+    );
+
+    expect(() => new ToolRegistry().register(toolFor(definition as ToolDefinition))).toThrow(
+      TypeError,
+    );
+  });
+
+  it("reads a definition the schema accepts even while Object.prototype is polluted", () => {
+    // `for...in` sees a polluted key and a spread does not, so `.strict()` would
+    // refuse the definition and accept its copy.
+    const polluted = SEARCH_TOOL as unknown as Record<string, unknown>;
+    Object.defineProperty(Object.prototype, "leakedGlobally", {
+      value: 1,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
+    try {
+      expect(registered(polluted)).toEqual(registeredTheOldWay(polluted));
+      expect(registered(polluted)).toBeUndefined();
+    } finally {
+      Reflect.deleteProperty(Object.prototype, "leakedGlobally");
+    }
+    expect(registered(polluted)).toEqual(SEARCH_TOOL);
+  });
+
   it.each(blobs)("gives the verdict the schema gave, as inputSchema: %s", (_label, blob) => {
     const definition = { ...SEARCH_TOOL, inputSchema: blob };
 

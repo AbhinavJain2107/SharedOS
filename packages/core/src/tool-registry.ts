@@ -51,12 +51,14 @@ export class ToolRegistry {
       throw new TypeError("tool definition does not match the SharedOS contract");
     }
 
-    const blobs = readJsonBlobs(source);
-    if (blobs === undefined) {
-      throw new TypeError("tool definition does not match the SharedOS contract");
-    }
-
-    const parsedDefinition = ToolDefinitionSchema.safeParse({ ...source, ...standInFor(blobs) });
+    // Undefined for a shape the copy would misrepresent, and for a blob the
+    // walk will not vouch for. Both take the untouched path, where the schema
+    // reads the definition the host actually passed.
+    const blobs = spreadIsFaithful(source) ? readJsonBlobs(source) : undefined;
+    const parsedDefinition =
+      blobs === undefined
+        ? ToolDefinitionSchema.safeParse(source)
+        : ToolDefinitionSchema.safeParse({ ...source, ...standInFor(blobs) });
     if (!parsedDefinition.success) {
       throw new TypeError("tool definition does not match the SharedOS contract");
     }
@@ -69,7 +71,11 @@ export class ToolRegistry {
       throw new DuplicateRegistrationError("tool", name);
     }
 
-    const definition = deepFreeze(cloneDefinition(Object.assign(parsedDefinition.data, blobs)));
+    const definition = deepFreeze(
+      cloneDefinition(
+        blobs === undefined ? parsedDefinition.data : Object.assign(parsedDefinition.data, blobs),
+      ),
+    );
     const parseArguments = handler.parseArguments;
     const resolveRequirement = handler.resolveRequirement;
     const invoke = handler.invoke;
@@ -190,6 +196,49 @@ type JsonBlobs = Partial<Record<(typeof JSON_BLOB_FIELDS)[number], JsonObject>>;
 const BLOB_STAND_IN: JsonObject = Object.freeze({});
 
 /**
+ * Whether `{ ...source }` is a faithful stand-in for `source` to the schema.
+ *
+ * The blob walk works by parsing a copy of the definition with cheap stand-ins
+ * where the JSON blobs were. Spreading is how that copy is made, and a spread
+ * takes own enumerable data properties and nothing else, while `z.object`
+ * reads its shape by property access -- through the prototype chain -- and
+ * collects unknown keys for `.strict()` with `for...in`, which walks it too.
+ * For almost every definition those describe the same thing. Where they do
+ * not, the copy is a different object from the one the host passed, and the
+ * contract would be decided against the copy: a definition inheriting a
+ * required field would be refused, and one inheriting `annotations` would be
+ * accepted with the annotations dropped -- silently losing a `destructive`
+ * hint that `superRefine` exists to catch.
+ *
+ * So the walk is taken only for definitions where the copy cannot differ, and
+ * anything else is handed to the schema exactly as it arrived. The fallback is
+ * the code this replaced, which is what makes the two verdicts equal by
+ * construction rather than by enumeration.
+ */
+function spreadIsFaithful(source: object): boolean {
+  // Anything else -- an array, a `Date`, a class instance, a null prototype --
+  // both changes what `z.object` sees and can carry inherited properties.
+  if (Object.getPrototypeOf(source) !== Object.prototype) {
+    return false;
+  }
+  // A polluted `Object.prototype` puts enumerable keys in `for...in` that a
+  // spread does not copy, so `.strict()` would refuse the original and accept
+  // the copy.
+  if (Object.keys(Object.prototype).length > 0) {
+    return false;
+  }
+  for (const name of Object.getOwnPropertyNames(source)) {
+    const descriptor = Object.getOwnPropertyDescriptor(source, name);
+    // Non-enumerable, so the spread drops it; or an accessor, which the spread
+    // would invoke a second time and could answer differently.
+    if (descriptor === undefined || !descriptor.enumerable || !("value" in descriptor)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Read a definition's JSON blobs, or refuse it as `JsonObjectSchema` would.
  *
  * `inputSchema`, `outputSchema` and `metadata` are typed in the contract as
@@ -210,8 +259,12 @@ const BLOB_STAND_IN: JsonObject = Object.freeze({});
  * included, so an absent `inputSchema` is still the schema's refusal to make
  * and an `outputSchema` explicitly set to `undefined` is still optional. The
  * lookup is a property read rather than an own-key test for the same reason:
- * it is what `z.object` does, so a definition that inherits a blob is read the
- * way it is today.
+ * it is what `z.object` does.
+ *
+ * Only reached for a definition {@link spreadIsFaithful} accepts. Returning
+ * `undefined` for a value that is not a JSON object is therefore not a
+ * refusal: `register` falls back to the schema, which refuses it with the
+ * issue it always did.
  */
 function readJsonBlobs(source: object): JsonBlobs | undefined {
   const blobs: JsonBlobs = {};

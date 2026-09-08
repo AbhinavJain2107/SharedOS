@@ -1386,7 +1386,7 @@ Defined in: [packages/core/src/tool-registry.ts:43](https://github.com/Aicoo-Tea
 
 > **copy**(): [`ToolRegistry`](#toolregistry)
 
-Defined in: [packages/core/src/tool-registry.ts:111](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L111)
+Defined in: [packages/core/src/tool-registry.ts:117](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L117)
 
 A registry holding the same registrations as this one.
 
@@ -1411,7 +1411,7 @@ context-supplied tools beside it.
 
 > **definitions**(): readonly `object`[]
 
-Defined in: [packages/core/src/tool-registry.ts:127](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L127)
+Defined in: [packages/core/src/tool-registry.ts:133](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L133)
 
 ###### Returns
 
@@ -1421,7 +1421,7 @@ readonly `object`[]
 
 > **get**(`name`): [`ToolHandler`](#toolhandler) \| `undefined`
 
-Defined in: [packages/core/src/tool-registry.ts:119](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L119)
+Defined in: [packages/core/src/tool-registry.ts:125](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L125)
 
 ###### Parameters
 
@@ -1437,7 +1437,7 @@ Defined in: [packages/core/src/tool-registry.ts:119](https://github.com/Aicoo-Te
 
 > **handlers**(): readonly [`ToolHandler`](#toolhandler)[]
 
-Defined in: [packages/core/src/tool-registry.ts:133](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L133)
+Defined in: [packages/core/src/tool-registry.ts:139](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L139)
 
 ###### Returns
 
@@ -1447,7 +1447,7 @@ readonly [`ToolHandler`](#toolhandler)[]
 
 > **has**(`name`): `boolean`
 
-Defined in: [packages/core/src/tool-registry.ts:123](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L123)
+Defined in: [packages/core/src/tool-registry.ts:129](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L129)
 
 ###### Parameters
 
@@ -1463,7 +1463,7 @@ Defined in: [packages/core/src/tool-registry.ts:123](https://github.com/Aicoo-Te
 
 > **namespaceCatalog**(`enabledToolNamespaces`): `object`
 
-Defined in: [packages/core/src/tool-registry.ts:139](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L139)
+Defined in: [packages/core/src/tool-registry.ts:145](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L145)
 
 ###### Parameters
 
