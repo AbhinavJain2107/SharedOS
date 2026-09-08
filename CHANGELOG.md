@@ -146,6 +146,35 @@ each entry calls out what a host has to update.
   in every turn's `modelSettings`, so a run in one mode is never read as a run in
   the other. A full run takes two minutes instead of four to five.
 
+- **The kernel copies its tool registry instead of rebuilding it per call.**
+  `listTools`, `listToolNamespaces`, `updateToolNamespaces` and `invokeTool` each
+  resolve the effective catalogue, and resolving it meant constructing a fresh
+  `ToolRegistry` and re-`register`ing every static handler: a
+  `ToolDefinitionSchema.safeParse`, a `JSON.parse(JSON.stringify(...))` clone and
+  a deep freeze per tool, over definitions `register` had already parsed, cloned
+  and frozen once, arriving each time at a value guaranteed equal to the one it
+  started from. The price grew with the catalogue, so when the conformance world
+  moved to the shipped file vocabulary — five published tools to seventeen —
+  catalogue resolution went with it, to 79% of one mediated call. `ToolRegistry`
+  gains `copy()`, which shares the registered entries, and the kernel resolves
+  from that. In `docs/conformance/systems-cost.md` resolving the catalogue reads
+  1.33 ms against 6.99, and one whole mediated call 2.44 ms against 8.23, on the
+  reference machine.
+
+  What the catalogue contains does not change, `catalogHash` with it, and neither
+  do the two properties the rebuild was carrying: a `ContextToolProvider` offering
+  a name a host already registered still fails closed on the duplicate, and a
+  registry a host passes as `options.tools` is still never mutated by the call
+  that adds context-supplied tools beside it. A third property the rebuild had
+  been carrying silently is now explicit: `register` freezes the entry, not only
+  the definition inside it, because two registries sharing a mutable entry would
+  let an assignment through one of them change what the other serves. Host code
+  that wrote to a registered handler was reaching into kernel state and now
+  raises a `TypeError`. The message-request tool is still
+  constructed per call, because its handler holds the envelope it prepared between
+  `resolveRequirement` and `invoke` and one instance per call is what keeps that
+  state from being shared by concurrent calls.
+
 ## 0.1.0-alpha.4
 
 ### Changed — breaking
