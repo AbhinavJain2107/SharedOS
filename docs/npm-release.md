@@ -45,19 +45,41 @@ that holds publish access in the `aicoo` organization, the release metadata and
 workflow merged to `main`, and the license and security-reporting contact
 (Apache-2.0 and `founders@aicoo.io`) approved.
 
-The transition to trusted publishing is:
+## Trusted publishing
 
-1. configure every package's trusted publisher on npm as GitHub Actions,
-   `Aicoo-Team/SharedOS`, workflow `release.yml`;
-2. publish the next prerelease entirely through its tag, which is the
-   end-to-end OIDC test — a tag for a version whose contents are already on
-   the registry verifies and skips, and exercises no `npm publish`;
-3. require 2FA and disallow token publishing after that verification.
+All twelve packages have a GitHub Actions trusted publisher on npm —
+repository `Aicoo-Team/SharedOS`, workflow `release.yml` — configured on
+2026-09-08. `release.yml` sets `id-token: write` and passes no npm token, so
+OIDC is the workflow's only credential, and it is also what attaches
+provenance: `--provenance` appears nowhere because trusted publishing does it.
 
-The repository and the packages are public, so npm provenance attestations are
-available to the workflow. Whether each step above has been completed is
-recorded on npm, not here; check a package's publishing settings before
-assuming the tag alone will publish.
+A trusted publisher can only be attached **after a package exists on the
+registry**. Any package added to the set in a future release therefore has to
+be published by hand once and configured immediately after. Until it is, its
+publish 404s, and because `scripts/release.mjs` runs the loop without a
+`try`/`catch`, the run stops there: every package later in the order is never
+published by CI and gets hand-published without provenance. That is what
+happened to `@aicoo/sharedos-mcp` at `0.1.0-alpha.3` and to
+`@aicoo/sharedos-precedent` at `0.1.0-alpha.4`.
+
+Read or set the configuration with `npm trust`, which needs npm 11.15.0 or
+newer and a credential that satisfies 2FA — a granular access token with the
+bypass-2FA option is refused, as are the account endpoints generally:
+
+```bash
+npm trust list @aicoo/sharedos-mcp
+npm trust github @aicoo/sharedos-mcp \
+  --file release.yml --repo Aicoo-Team/SharedOS --allow-publish
+```
+
+`npm trust github` is also the better audit of the two: it reports `409
+Conflict` when a matching publisher already exists, so one command either
+closes the gap or proves there was none.
+
+A green workflow run over a version whose contents are already on the registry
+is **not** an end-to-end OIDC test. That version takes the `state ===
+"matching"` branch, skips every `npm publish`, and exercises no credential at
+all.
 
 ## Validate a release candidate
 
@@ -80,33 +102,36 @@ already holds; and an `npm publish --dry-run` per tarball. It does not publish.
 
 ## Publishing a prerelease
 
-After the release PR is merged, tag that exact commit. A manual publication
-needs an npm account that controls `@aicoo`; never paste an npm token or OTP
-into an issue, pull request, shell history, or chat.
+After the release PR is merged, tag that exact commit and push the tag. With
+every package's trusted publisher configured, that is the whole release:
 
 ```bash
 git switch main
 git pull --ff-only
 git tag -a v0.1.0-alpha.5 -m "SharedOS v0.1.0-alpha.5"
-SHAREDOS_RELEASE_CONFIRM=v0.1.0-alpha.5 pnpm release:publish
-```
-
-`release:publish` requires a clean worktree, the exact version tag on `HEAD`,
-and that commit to be contained in `origin/main`. It always publishes with
-public access to the official npm registry under the `next` dist-tag, skips a
-package whose identical contents are already published, and verifies every
-package on the registry afterwards.
-
-Pushing the tag runs `release.yml`, which repeats the verification and
-publishes whatever the tag's version is missing on the registry:
-
-```bash
 git push origin v0.1.0-alpha.5
 ```
 
-With trusted publishing configured, pushing the tag is the whole release and
-no long-lived npm token belongs in GitHub Actions. Until then, the manual
-publication above comes first and the workflow verifies and skips.
+`release.yml` first checks that the tag names the version in
+`packages/sdk/package.json` and stops if it does not, so the tag belongs on the
+release commit and nowhere else. It then runs `release:publish`, which requires
+a clean worktree, the exact version tag on `HEAD`, and that commit to be
+contained in `origin/main`. It publishes with public access under the `next`
+dist-tag, skips a package whose identical contents are already published, and
+verifies every package on the registry afterwards.
+
+**Push the tag before publishing anything by hand.** Publishing by hand first
+leaves the workflow nothing to do — it skips every package as already matching
+— and no package gets a provenance attestation. Hand-publish only what the
+workflow could not reach, from a clean tagged checkout, with an npm account
+that controls `@aicoo`:
+
+```bash
+SHAREDOS_RELEASE_CONFIRM=v0.1.0-alpha.5 pnpm release:publish
+```
+
+Never paste an npm token, OTP, or recovery code into an issue, pull request,
+shell history, or chat.
 
 ## Verify the registry
 
@@ -114,6 +139,18 @@ publication above comes first and the workflow verifies and skips.
 npm view @aicoo/sharedos@next version dist.integrity
 npm install @aicoo/sharedos@next
 npm audit signatures
+```
+
+Confirm that the workflow, not a hand publish, put each package there — a
+package with no `dist.attestations` was published without provenance and is a
+trusted-publisher gap to close before the next release:
+
+```bash
+for p in contracts core precedent os runtime client http testkit mcp adapters conformance; do
+  printf '%-14s ' "$p"
+  curl -s "https://registry.npmjs.org/@aicoo%2fsharedos-$p/0.1.0-alpha.5" \
+    | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).dist?.attestations?"provenance":"NONE"))'
+done
 ```
 
 Releases land under `next`, so `latest` stays wherever the first publication
