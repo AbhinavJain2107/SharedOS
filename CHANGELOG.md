@@ -6,7 +6,7 @@ version and are published together under npm's `next` dist-tag.
 SharedOS is a `0.x` prerelease: contracts may change between prereleases, and
 each entry calls out what a host has to update.
 
-## Unreleased
+## 0.1.0-alpha.5
 
 ### Changed — breaking
 

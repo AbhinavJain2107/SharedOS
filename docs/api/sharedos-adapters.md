@@ -1,4 +1,4 @@
-[**SharedOS API v0.1.0-alpha.4**](README.md)
+[**SharedOS API v0.1.0-alpha.5**](README.md)
 
 ---
 
@@ -1689,7 +1689,7 @@ Defined in: [packages/adapters/src/pi/index.ts:49](https://github.com/Aicoo-Team
 
 ### CLAUDE\_CODE\_ADAPTER\_VERSION
 
-> `const` **CLAUDE\_CODE\_ADAPTER\_VERSION**: `"0.1.0-alpha.4"` = `"0.1.0-alpha.4"`
+> `const` **CLAUDE\_CODE\_ADAPTER\_VERSION**: `"0.1.0-alpha.5"` = `"0.1.0-alpha.5"`
 
 Defined in: [packages/adapters/src/claude-code/index.ts:15](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/adapters/src/claude-code/index.ts#L15)
 
@@ -1758,7 +1758,7 @@ Defined in: [packages/adapters/src/claude-code/protocol.ts:48](https://github.co
 
 ### CODEX\_ADAPTER\_VERSION
 
-> `const` **CODEX\_ADAPTER\_VERSION**: `"0.1.0-alpha.4"` = `"0.1.0-alpha.4"`
+> `const` **CODEX\_ADAPTER\_VERSION**: `"0.1.0-alpha.5"` = `"0.1.0-alpha.5"`
 
 Defined in: [packages/adapters/src/codex/index.ts:15](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/adapters/src/codex/index.ts#L15)
 
@@ -1828,7 +1828,7 @@ Defined in: [packages/adapters/src/codex/protocol.ts:66](https://github.com/Aico
 
 ### DEEPSEEK\_ADAPTER\_VERSION
 
-> `const` **DEEPSEEK\_ADAPTER\_VERSION**: `"0.1.0-alpha.4"` = `"0.1.0-alpha.4"`
+> `const` **DEEPSEEK\_ADAPTER\_VERSION**: `"0.1.0-alpha.5"` = `"0.1.0-alpha.5"`
 
 Defined in: [packages/adapters/src/deepseek/index.ts:15](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/adapters/src/deepseek/index.ts#L15)
 
@@ -1912,7 +1912,7 @@ Defined in: [packages/adapters/src/deepseek/protocol.ts:107](https://github.com/
 
 ### PI\_ADAPTER\_VERSION
 
-> `const` **PI\_ADAPTER\_VERSION**: `"0.1.0-alpha.4"` = `"0.1.0-alpha.4"`
+> `const` **PI\_ADAPTER\_VERSION**: `"0.1.0-alpha.5"` = `"0.1.0-alpha.5"`
 
 Defined in: [packages/adapters/src/pi/index.ts:15](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/adapters/src/pi/index.ts#L15)
 
