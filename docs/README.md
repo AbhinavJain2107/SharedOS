@@ -151,6 +151,7 @@ is the boundary between them and the agents that act on them.
 - [ADR 0023: Every refusal reaches audit, and the record names the boundary](adr/0023-every-refusal-reaches-audit.md)
 - [ADR 0024: Git is its own resource namespace](adr/0024-git-is-its-own-resource-namespace.md)
 - [ADR 0025: A route lease is not an authority lease](adr/0025-route-lease-is-not-authority.md)
+- [ADR 0026: The effective catalogue is resolved once per turn](adr/0026-catalogue-resolved-once-per-turn.md)
 
 ## Project governance
 
