@@ -258,6 +258,14 @@ interface AuthorityLease {
    * (ADR 0026).
    */
   registry?: Promise<ToolRegistry> | undefined;
+  /**
+   * The catalogue identity this turn published, once it has published one.
+   *
+   * Set by `listTools`, which is where a catalogue is filtered to what the
+   * caller may see and hashed. A turn that never listed carries none, and its
+   * calls say nothing rather than naming a catalogue nobody was served.
+   */
+  catalogHash?: string | undefined;
 }
 
 /**
@@ -748,7 +756,7 @@ export class SharedOSKernel {
           outcome: "denied",
           reason: "authority_unavailable",
           metadata: {
-            catalogHash: await catalogHash([]),
+            catalogHash: this.#holdCatalogHash(context, await catalogHash([])),
             enabledNamespaces: [...context.enabledToolNamespaces],
             withheldCount: 0,
             failClosed: true,
@@ -810,7 +818,10 @@ export class SharedOSKernel {
           // keeps the one distinction a reader cannot do without: whether
           // something was withheld by an outage rather than by a decision
           // (ADR 0023).
-          catalogHash: await catalogHash(publishToolCatalog(allowed)),
+          catalogHash: this.#holdCatalogHash(
+            context,
+            await catalogHash(publishToolCatalog(allowed)),
+          ),
           enabledNamespaces: [...context.enabledToolNamespaces],
           ...(hostPolicy?.status === "loaded" ? { hostPolicyVersion: hostPolicy.version } : {}),
           withheldCount,
@@ -1360,6 +1371,27 @@ export class SharedOSKernel {
     }
   }
 
+  /**
+   * Hold the catalogue identity this turn published, and hand it back.
+   *
+   * `catalogHash` said which catalogue a listing served and nothing said which
+   * one a call was answered from, so the correspondence between them was a
+   * claim in a comment rather than anything a reader could check. Holding it
+   * beside the resolution it identifies is what lets `tool.invoked` carry it:
+   * the two events then join on a value, and a turn's calls are attributable to
+   * the catalogue its model was shown.
+   *
+   * Returned rather than only stored, so the event being built reads the same
+   * value that was held instead of computing it twice.
+   */
+  #holdCatalogHash(context: AccessContext, hash: string): string {
+    const lease = this.#leases.get(turnAuthorityKey(context));
+    if (lease !== undefined) {
+      lease.catalogHash = hash;
+    }
+    return hash;
+  }
+
   async #deriveToolRegistry(
     context: AccessContext,
     signal: AbortSignal | undefined,
@@ -1889,6 +1921,7 @@ export class SharedOSKernel {
     detail: ToolResultAuditDetail = {},
   ): Promise<void> {
     const { grantId, requirement, cause } = detail;
+    const catalogueServed = this.#leases.get(turnAuthorityKey(context))?.catalogHash;
     await this.#recordOutcome(
       this.#auditEvent(context, {
         type: "tool.invoked",
@@ -1908,6 +1941,14 @@ export class SharedOSKernel {
           // recording too -- anything in audit was the kernel's -- and a fact
           // with nowhere to live the moment that stopped being true (ADR 0023).
           source: "kernel",
+          // Which catalogue answered it. The turn resolves one and holds it
+          // (ADR 0026), so this is the same value the turn's `tool.catalog.listed`
+          // carries, and the two join on it: a reader can say which calls a
+          // catalogue produced without inferring it from time order. Absent on a
+          // call whose turn never listed -- a turn of one operation, or a host
+          // that invokes without discovering -- because there is no catalogue
+          // the caller was shown to name.
+          ...(catalogueServed === undefined ? {} : { catalogHash: catalogueServed }),
           // `tool_unavailable` is one code over several situations by design,
           // so the model cannot tell them apart. An audit reader is not the
           // model. `reason` stays the code the caller was given and this says

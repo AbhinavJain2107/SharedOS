@@ -4,6 +4,7 @@ import type {
   AccessContext,
   CapabilityRequest,
   CapabilityGrant,
+  JsonObject,
   MessageEnvelope,
   ResourceRef,
   ToolCall,
@@ -1075,6 +1076,101 @@ describe("SharedOSKernel catalogue resolution", () => {
     }
 
     expect(listTools).toHaveBeenCalledTimes(1);
+  });
+
+  function auditing(): { events: AuditEvent[]; audit: AuditSink } {
+    const events: AuditEvent[] = [];
+    return { events, audit: { record: async (event) => void events.push(event) } };
+  }
+
+  function metadataOf(events: readonly AuditEvent[], type: AuditEvent["type"]): JsonObject {
+    const event = events.find((candidate) => candidate.type === type);
+    expect(event, `no ${type} event was recorded`).toBeDefined();
+    return (event?.metadata ?? {}) as JsonObject;
+  }
+
+  it("names on every call the catalogue the turn was served", async () => {
+    const { events, audit } = auditing();
+    const kernel = kernelWith([NOTION_GRANT], {
+      audit,
+      toolProviders: [providerOf(async () => [successfulTool(NOTION_TOOL)])],
+    });
+    const access = context(["notion"]);
+
+    const scope = await kernel.openTurnAuthority(access);
+    try {
+      await kernel.listTools(access);
+      await expect(kernel.invokeTool(access, notionCall("call-1"))).resolves.toMatchObject({
+        status: "succeeded",
+      });
+    } finally {
+      scope.close();
+    }
+
+    // The hash over the catalogue actually served, not merely equal to itself:
+    // audit, the identifier a harness is handed, and this are one value.
+    const served = await catalogHash(publishToolCatalog([NOTION_TOOL]));
+    expect(metadataOf(events, "tool.catalog.listed")["catalogHash"]).toBe(served);
+    expect(metadataOf(events, "tool.invoked")["catalogHash"]).toBe(served);
+  });
+
+  it("names the catalogue on a refused call too, which is the one worth attributing", async () => {
+    const { events, audit } = auditing();
+    const kernel = kernelWith([], {
+      audit,
+      toolProviders: [providerOf(async () => [successfulTool(NOTION_TOOL)])],
+    });
+    const access = context(["notion"]);
+
+    const scope = await kernel.openTurnAuthority(access);
+    try {
+      await expect(kernel.listTools(access)).resolves.toEqual([]);
+      await expect(kernel.invokeTool(access, notionCall("call-1"))).resolves.toMatchObject({
+        status: "denied",
+        error: { code: "tool_unavailable" },
+      });
+    } finally {
+      scope.close();
+    }
+
+    const withheld = await catalogHash(publishToolCatalog([]));
+    expect(metadataOf(events, "tool.catalog.listed")["catalogHash"]).toBe(withheld);
+    expect(metadataOf(events, "tool.invoked")["catalogHash"]).toBe(withheld);
+  });
+
+  it("names no catalogue on a call whose turn never listed one", async () => {
+    const { events, audit } = auditing();
+    const kernel = kernelWith([NOTION_GRANT], {
+      audit,
+      toolProviders: [providerOf(async () => [successfulTool(NOTION_TOOL)])],
+    });
+    const access = context(["notion"]);
+
+    const scope = await kernel.openTurnAuthority(access);
+    try {
+      await kernel.invokeTool(access, notionCall("call-1"));
+    } finally {
+      scope.close();
+    }
+
+    // Absent rather than filled in. A host that invokes without discovering was
+    // served no catalogue, and naming one it never saw would be an invention.
+    expect(metadataOf(events, "tool.invoked")).not.toHaveProperty("catalogHash");
+  });
+
+  it("names no catalogue outside a turn, where a listing does not answer for a call", async () => {
+    const { events, audit } = auditing();
+    const kernel = kernelWith([NOTION_GRANT], {
+      audit,
+      toolProviders: [providerOf(async () => [successfulTool(NOTION_TOOL)])],
+    });
+    const access = context(["notion"]);
+
+    await kernel.listTools(access);
+    await kernel.invokeTool(access, notionCall("call-1"));
+
+    expect(metadataOf(events, "tool.catalog.listed")["catalogHash"]).toMatch(/^[0-9a-f]{64}$/u);
+    expect(metadataOf(events, "tool.invoked")).not.toHaveProperty("catalogHash");
   });
 });
 
