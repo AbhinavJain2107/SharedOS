@@ -1,6 +1,6 @@
 # ADR 0026: The effective catalogue is resolved once per turn
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-09-08
 - Extends: `docs/adr/0010-per-turn-authority.md`
 
