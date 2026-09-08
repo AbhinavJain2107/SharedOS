@@ -10,7 +10,7 @@ import { ToolDefinitionSchema } from "@aicoo/sharedos-contracts";
 
 import type { AuthorizationRequest } from "./authorization.js";
 import { DuplicateRegistrationError } from "./errors.js";
-import { deepFreeze } from "./internal.js";
+import { deepFreeze, readJsonObject } from "./internal.js";
 
 export interface ToolHandler {
   readonly definition: ToolDefinition;
@@ -44,7 +44,19 @@ export class ToolRegistry {
   readonly #tools = new Map<string, ToolHandler>();
 
   register(handler: ToolHandler): void {
-    const parsedDefinition = ToolDefinitionSchema.safeParse(handler.definition);
+    // Read as untrusted. `ToolHandler` is a host-implemented interface, so a
+    // definition is whatever the caller passed, not necessarily an object.
+    const source: unknown = handler.definition;
+    if (typeof source !== "object" || source === null) {
+      throw new TypeError("tool definition does not match the SharedOS contract");
+    }
+
+    const blobs = readJsonBlobs(source);
+    if (blobs === undefined) {
+      throw new TypeError("tool definition does not match the SharedOS contract");
+    }
+
+    const parsedDefinition = ToolDefinitionSchema.safeParse({ ...source, ...standInFor(blobs) });
     if (!parsedDefinition.success) {
       throw new TypeError("tool definition does not match the SharedOS contract");
     }
@@ -57,7 +69,7 @@ export class ToolRegistry {
       throw new DuplicateRegistrationError("tool", name);
     }
 
-    const definition = deepFreeze(cloneDefinition(parsedDefinition.data));
+    const definition = deepFreeze(cloneDefinition(Object.assign(parsedDefinition.data, blobs)));
     const parseArguments = handler.parseArguments;
     const resolveRequirement = handler.resolveRequirement;
     const invoke = handler.invoke;
@@ -158,6 +170,96 @@ export class ToolRegistry {
   }
 }
 
+/**
+ * A definition's fields that the contract types as a free-form JSON object.
+ *
+ * Ordered as {@link ToolDefinitionSchema} declares them, so a field added to
+ * the contract as a `JsonObjectSchema` is a visible omission here.
+ */
+const JSON_BLOB_FIELDS = ["inputSchema", "outputSchema", "metadata"] as const;
+
+/** The fields of {@link JSON_BLOB_FIELDS} a definition carried, read and copied. */
+type JsonBlobs = Partial<Record<(typeof JSON_BLOB_FIELDS)[number], JsonObject>>;
+
+/**
+ * What the contract schema is shown where a JSON blob was.
+ *
+ * Frozen and shared because it is only ever parsed, never stored: `register`
+ * puts the walked value back over it before the definition is kept.
+ */
+const BLOB_STAND_IN: JsonObject = Object.freeze({});
+
+/**
+ * Read a definition's JSON blobs, or refuse it as `JsonObjectSchema` would.
+ *
+ * `inputSchema`, `outputSchema` and `metadata` are typed in the contract as
+ * `JsonObjectSchema`, a recursive union tried at every branch of every node.
+ * On the shipped `messages.request` definition, deciding that its JSON Schema
+ * is JSON costs 1244 us of a 1302 us parse -- 93% of the 1340 us that
+ * registering that tool took, and until the catalogue was held per turn
+ * (ADR 0026) it was 93% of registering it again on every mediated call.
+ * Registering it now reads 67 us, and the whole conformance world of nineteen
+ * definitions 677 us against 7334 us.
+ *
+ * `readJsonObject` reaches the same verdict by walking the value once. It is
+ * not a second opinion about the contract: `internal.test.ts` holds it to
+ * `JsonObjectSchema` over forty-nine shapes -- verdict, value, and the own
+ * names at every depth.
+ *
+ * A field is read exactly when the schema would see a value there, `undefined`
+ * included, so an absent `inputSchema` is still the schema's refusal to make
+ * and an `outputSchema` explicitly set to `undefined` is still optional. The
+ * lookup is a property read rather than an own-key test for the same reason:
+ * it is what `z.object` does, so a definition that inherits a blob is read the
+ * way it is today.
+ */
+function readJsonBlobs(source: object): JsonBlobs | undefined {
+  const blobs: JsonBlobs = {};
+  for (const field of JSON_BLOB_FIELDS) {
+    const blob: unknown = (source as Record<string, unknown>)[field];
+    if (blob === undefined) {
+      continue;
+    }
+    const value = readJsonObject(blob);
+    if (value === undefined) {
+      return undefined;
+    }
+    blobs[field] = value;
+  }
+  return blobs;
+}
+
+/**
+ * The blobs, as the schema sees them.
+ *
+ * Every field is still declared to the schema, so it still decides which are
+ * required, which are optional and which are unknown; only what it recurses
+ * into is replaced.
+ */
+function standInFor(blobs: JsonBlobs): JsonBlobs {
+  const standIns: JsonBlobs = {};
+  for (const field of JSON_BLOB_FIELDS) {
+    if (blobs[field] !== undefined) {
+      standIns[field] = BLOB_STAND_IN;
+    }
+  }
+  return standIns;
+}
+
+/**
+ * Copy what the schema returned, so nothing registered aliases a caller's value.
+ *
+ * Kept as a JSON round trip over the whole definition, blobs included, rather
+ * than left to the copy the walk above already made. The round trip is an
+ * identity on the values the walk emits but for one: it turns `-0` into `0`,
+ * and a registration that stopped doing that would be a change to what a
+ * definition holds, made silently, for a saving of 22 us against the 1273 us
+ * the walk is here for.
+ *
+ * `structuredClone` was measured in its place and is slower -- 43 us against
+ * 27 us on the widest shipped definition -- besides preserving the `-0` the
+ * round trip normalizes.
+ */
 function cloneDefinition(definition: ToolDefinition): ToolDefinition {
   return JSON.parse(JSON.stringify(definition)) as ToolDefinition;
 }

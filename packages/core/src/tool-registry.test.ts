@@ -1,9 +1,11 @@
 import type {
   AccessContext,
+  JsonObject,
   ToolCall,
   ToolDefinition,
   ToolResult,
 } from "@aicoo/sharedos-contracts";
+import { ToolDefinitionSchema } from "@aicoo/sharedos-contracts";
 import { describe, expect, it, vi } from "vitest";
 
 import { DuplicateRegistrationError } from "./errors.js";
@@ -142,8 +144,8 @@ describe("copying a tool registry", () => {
   });
 
   it("isolates both directions, so neither registry sees the other's later tools", () => {
-    // The kernel copies once per call and registers context-supplied tools onto
-    // the copy. A host registry that grew a tool from someone else's call, or a
+    // The kernel copies once per turn and registers context-supplied tools onto
+    // the copy. A host registry that grew a tool from someone else's turn, or a
     // copy that kept growing after it was taken, would both be that isolation
     // failing.
     const source = registryWith(SEARCH_TOOL);
@@ -158,5 +160,182 @@ describe("copying a tool registry", () => {
 
   it("copies an empty registry", () => {
     expect(new ToolRegistry().copy().definitions()).toEqual([]);
+  });
+});
+
+/**
+ * What `register` stored before the walk: the whole definition through
+ * `ToolDefinitionSchema`, then a JSON round trip.
+ *
+ * Kept here as the oracle, so the reading `register` does now is compared
+ * against the one it replaced rather than described by the tests that assert
+ * it.
+ */
+function registeredTheOldWay(definition: unknown): ToolDefinition | undefined {
+  const parsed = ToolDefinitionSchema.safeParse(definition);
+  return parsed.success ? (JSON.parse(JSON.stringify(parsed.data)) as ToolDefinition) : undefined;
+}
+
+/** Every own name at every depth, so a dropped or an added key is seen, not just a changed value. */
+function shape(value: unknown): unknown {
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+  return Object.getOwnPropertyNames(value).map((key) => [
+    key,
+    shape((value as Record<string, unknown>)[key]),
+  ]);
+}
+
+function registered(definition: unknown): ToolDefinition | undefined {
+  const registry = new ToolRegistry();
+  try {
+    registry.register(toolFor(definition as ToolDefinition));
+  } catch {
+    return undefined;
+  }
+  return registry.get("files.search")?.definition;
+}
+
+describe("reading a tool definition's JSON blobs", () => {
+  class Plain {
+    readonly own = 1;
+  }
+  const inherited = Object.create({ inherited: "yes" }) as Record<string, unknown>;
+  inherited["own"] = 1;
+  const hidden = Object.defineProperty({ shown: 1 }, "hidden", { value: 2, enumerable: false });
+  const getter = Object.defineProperty({}, "computed", { get: () => "read", enumerable: true });
+  const nullProto = Object.assign(Object.create(null) as Record<string, unknown>, { a: 1 });
+  const sparse = [1, , 3]; // eslint-disable-line no-sparse-arrays
+
+  const blobs: readonly [string, unknown][] = [
+    ["an ordinary JSON Schema", { type: "object", properties: { q: { type: "string" } } }],
+    ["nested branches", { oneOf: [{ const: "a" }, { const: "b" }], items: [[{ x: null }]] }],
+    ["an empty object", {}],
+    ["a negative zero", { minimum: -0, nested: { z: -0 } }],
+    ["a non-finite number", { maximum: Number.POSITIVE_INFINITY }],
+    ["a nan", { maximum: Number.NaN }],
+    ["an undefined field", { type: undefined }],
+    ["an undefined field nested", { properties: { q: undefined } }],
+    ["a bigint", { maximum: 1n }],
+    ["a symbol", { type: Symbol("object") }],
+    ["a function", { validate: () => true }],
+    ["a date", { since: new Date(0) }],
+    ["a map", { m: new Map() }],
+    ["a set", { s: new Set() }],
+    ["a thenable", { p: { then: () => 1, catch: () => 1 } }],
+    ["a class instance", { o: new Plain() }],
+    ["an inherited enumerable key", { o: inherited }],
+    ["a null prototype", { o: nullProto }],
+    ["a non-enumerable own key", { o: hidden }],
+    ["an enumerable getter", { o: getter }],
+    ["a typed array", { o: new Uint8Array([1, 2]) }],
+    ["a sparse array", { enum: sparse }],
+    ["an array holding undefined", { enum: [1, undefined] }],
+    ["an own __proto__ key", JSON.parse('{"__proto__":{"x":1},"type":"object"}') as unknown],
+    ["a deep value", JSON.parse(`{"a":${"[".repeat(64)}1${"]".repeat(64)}}`) as unknown],
+    ["a frozen value", Object.freeze({ type: Object.freeze(["object"]) })],
+    ["not an object at all", "object"],
+    ["an array", [1, 2]],
+    ["null", null],
+    ["a number", 1],
+  ];
+
+  it.each(blobs)("gives the verdict the schema gave, as inputSchema: %s", (_label, blob) => {
+    const definition = { ...SEARCH_TOOL, inputSchema: blob };
+
+    const expected = registeredTheOldWay(definition);
+    const actual = registered(definition);
+
+    expect(actual === undefined).toBe(expected === undefined);
+    expect(actual).toEqual(expected);
+    expect(shape(actual)).toEqual(shape(expected));
+  });
+
+  it.each(blobs)("gives the verdict the schema gave, as outputSchema: %s", (_label, blob) => {
+    // The optional fields matter more than the required one: a stand-in that
+    // papered over them would let a definition the contract refuses through,
+    // and it would do it silently, on the field nothing else reads.
+    const definition = { ...SEARCH_TOOL, outputSchema: blob };
+
+    const expected = registeredTheOldWay(definition);
+    const actual = registered(definition);
+
+    expect(actual === undefined).toBe(expected === undefined);
+    expect(actual).toEqual(expected);
+    expect(shape(actual)).toEqual(shape(expected));
+  });
+
+  it.each(blobs)("gives the verdict the schema gave, as metadata: %s", (_label, blob) => {
+    const definition = { ...SEARCH_TOOL, metadata: blob };
+
+    const expected = registeredTheOldWay(definition);
+    const actual = registered(definition);
+
+    expect(actual === undefined).toBe(expected === undefined);
+    expect(actual).toEqual(expected);
+    expect(shape(actual)).toEqual(shape(expected));
+  });
+
+  it("still refuses a definition with no inputSchema at all", () => {
+    const { inputSchema: _dropped, ...withoutInputSchema } = SEARCH_TOOL;
+
+    expect(registeredTheOldWay(withoutInputSchema)).toBeUndefined();
+    expect(registered(withoutInputSchema)).toBeUndefined();
+  });
+
+  it("keeps an optional blob optional when the key is present and undefined", () => {
+    const definition = { ...SEARCH_TOOL, outputSchema: undefined, metadata: undefined };
+
+    const actual = registered(definition);
+
+    expect(actual).toEqual(registeredTheOldWay(definition));
+    expect(actual).toEqual(SEARCH_TOOL);
+    expect("outputSchema" in (actual ?? {})).toBe(false);
+  });
+
+  it("reads a blob the definition inherits, because the schema reads one", () => {
+    // `z.object` reads its shape by property access, so a definition whose
+    // `inputSchema` sits on a prototype is accepted today. The walk is given
+    // the same lookup rather than an own-key test, so it stays accepted.
+    const definition = Object.create({
+      inputSchema: { type: "object" },
+    }) as Record<string, unknown>;
+    Object.assign(definition, { ...SEARCH_TOOL, inputSchema: undefined });
+    delete definition["inputSchema"];
+
+    const actual = registered(definition);
+
+    expect(actual).toEqual(registeredTheOldWay(definition));
+    expect(actual?.inputSchema).toEqual({ type: "object" });
+  });
+
+  it("stores a copy, so a definition mutated after registration is not the one served", () => {
+    const properties = { query: { type: "string" } };
+    const definition = { ...SEARCH_TOOL, inputSchema: { type: "object", properties } };
+
+    const registry = new ToolRegistry();
+    registry.register(toolFor(definition));
+    properties.query.type = "number";
+
+    expect(registry.get("files.search")?.definition.inputSchema).toEqual({
+      type: "object",
+      properties: { query: { type: "string" } },
+    });
+  });
+
+  it("freezes the blob at every depth, not just the definition", () => {
+    const registry = registryWith({
+      ...SEARCH_TOOL,
+      inputSchema: { type: "object", properties: { query: { type: "string" } } },
+    });
+
+    const stored = registry.get("files.search")?.definition;
+    const properties = stored?.inputSchema["properties"] as Record<string, JsonObject>;
+
+    expect(Object.isFrozen(stored)).toBe(true);
+    expect(Object.isFrozen(stored?.inputSchema)).toBe(true);
+    expect(Object.isFrozen(properties)).toBe(true);
+    expect(Object.isFrozen(properties["query"])).toBe(true);
   });
 });
