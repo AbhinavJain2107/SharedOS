@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type {
   AccessContext,
+  Address,
   CapabilityRequest,
   CapabilityGrant,
   JsonObject,
@@ -1396,7 +1397,7 @@ describe("SharedOSKernel messaging and audit", () => {
     });
   }
 
-  function messageResource(receiver = RECEIVER): ResourceRef {
+  function messageResource(receiver: Address = RECEIVER): ResourceRef {
     return {
       namespace: "sharedos.messaging",
       path: addressPath(receiver),
@@ -1419,6 +1420,94 @@ describe("SharedOSKernel messaging and audit", () => {
       },
     };
   }
+
+  it("keeps concurrent message requests in one turn from taking each other's envelope", async () => {
+    // The handler carries the envelope it prepared between `resolveRequirement`
+    // and `invoke`. Since a turn holds one derived catalogue (ADR 0026), the
+    // turn's calls share one handler, so that state cannot live on the handler.
+    const OTHER = { kind: "agent", agentId: "agent-eve" } as const;
+    const delivered: MessageEnvelope[] = [];
+    const deliver = vi.fn<MessageTransport["deliver"]>(async (_access, message) => {
+      // Yield between preparing and sending, which is where a second call in
+      // the same turn interleaves.
+      await Promise.resolve();
+      delivered.push(message);
+      return { messageId: message.id, status: "accepted", timestamp: NOW };
+    });
+    const resolveReply = vi.fn<MessageRequestRouter["resolveReply"]>(async (_access, request) =>
+      replyTo(request),
+    );
+    const kernel = kernelWith(
+      [
+        grant("grant-tina", messageResource(RECEIVER), ["send"]),
+        grant("grant-eve", messageResource(OTHER), ["send"]),
+      ],
+      {
+        messageTransport: { deliver },
+        messageRequestRouter: { resolveReply },
+        createMessageId: (_access, call) => `message-for-${call.id}`,
+      },
+    );
+    const access = context(["messages"]);
+
+    const scope = await kernel.openTurnAuthority(access);
+    try {
+      await Promise.all([
+        kernel.invokeTool(access, {
+          ...messageRequestCall({ recipient: RECEIVER, payload: { for: "tina" } }),
+          id: "call-tina",
+        }),
+        kernel.invokeTool(access, {
+          ...messageRequestCall({ recipient: OTHER, payload: { for: "eve" } }),
+          id: "call-eve",
+        }),
+      ]);
+    } finally {
+      scope.close();
+    }
+
+    expect(
+      delivered
+        .map(({ receiver, payload }) => ({ receiver, payload }))
+        .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right))),
+    ).toEqual([
+      { receiver: OTHER, payload: { for: "eve" } },
+      { receiver: RECEIVER, payload: { for: "tina" } },
+    ]);
+  });
+
+  it("sends what a call was authorized for even when another call reuses its id", async () => {
+    // The sharper half: with the envelope keyed on `call.id`, two concurrent
+    // calls sharing an id pass the prepared-for-this-call guard, and the
+    // authorization decision made for one recipient is spent delivering to the
+    // other -- here to an address holding no grant at all.
+    const UNGRANTED = { kind: "agent", agentId: "agent-eve" } as const;
+    const delivered: MessageEnvelope[] = [];
+    const deliver = vi.fn<MessageTransport["deliver"]>(async (_access, message) => {
+      await Promise.resolve();
+      delivered.push(message);
+      return { messageId: message.id, status: "accepted", timestamp: NOW };
+    });
+    const kernel = kernelWith([grant("grant-tina", messageResource(RECEIVER), ["send"])], {
+      messageTransport: { deliver },
+      messageRequestRouter: { resolveReply: async (_access, request) => replyTo(request) },
+    });
+    const access = context(["messages"]);
+
+    const scope = await kernel.openTurnAuthority(access);
+    try {
+      const [granted, refused] = await Promise.all([
+        kernel.invokeTool(access, messageRequestCall({ recipient: RECEIVER })),
+        kernel.invokeTool(access, messageRequestCall({ recipient: UNGRANTED })),
+      ]);
+      expect(granted).toMatchObject({ status: "succeeded" });
+      expect(refused).toMatchObject({ status: "denied", error: { code: "no_matching_grant" } });
+    } finally {
+      scope.close();
+    }
+
+    expect(delivered.map(({ receiver }) => receiver)).toEqual([RECEIVER]);
+  });
 
   it("does not expose or execute the request tool without send authority", async () => {
     const deliver = vi.fn<MessageTransport["deliver"]>();

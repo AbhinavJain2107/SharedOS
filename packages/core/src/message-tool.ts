@@ -143,9 +143,31 @@ export interface MessageRequestToolOptions {
   readonly reportProviderError?: MessageRequestErrorReporter;
 }
 
-/** Create one invocation-local handler; its prepared envelope is never shared. */
+/**
+ * Create the message-request handler.
+ *
+ * `resolveRequirement` builds the envelope the kernel then authorizes, and
+ * `invoke` must send *that* envelope rather than rebuild one -- what was
+ * authorized and what is delivered would otherwise be two separate readings of
+ * the same arguments. The envelope is therefore carried between the two hooks,
+ * keyed on the call object itself.
+ *
+ * On the call object, not on the handler and not on `call.id`. A handler with
+ * one prepared slot is only safe while no two calls are in flight through it,
+ * which stopped being true when the kernel began holding one effective
+ * catalogue for a whole turn (ADR 0026): concurrent calls then shared this
+ * handler, and the second to resolve its requirement overwrote the first's
+ * envelope. Keying on `call.id` narrows that to calls that share an id, where
+ * it is worse -- the guard below passes and one call's authorization decision
+ * is spent on another call's recipient. The kernel passes one frozen `ToolCall`
+ * to both hooks, so the object itself is the only key that identifies the call
+ * rather than something a caller chose.
+ */
 export function createMessageRequestTool(options: MessageRequestToolOptions): ToolHandler {
-  let prepared: { readonly callId: string; readonly envelope: MessageEnvelope } | undefined;
+  const prepared = new WeakMap<
+    ToolCall,
+    { readonly callId: string; readonly envelope: MessageEnvelope }
+  >();
 
   return {
     definition: MESSAGE_REQUEST_TOOL_DEFINITION,
@@ -175,11 +197,12 @@ export function createMessageRequestTool(options: MessageRequestToolOptions): To
         structuredClone(trustedContext),
         structuredClone(envelope),
       );
-      prepared = { callId: call.id, envelope };
+      prepared.set(call, { callId: call.id, envelope });
       return requirement;
     },
     async invoke(context, call, signal) {
-      if (prepared === undefined || prepared.callId !== call.id) {
+      const held = prepared.get(call);
+      if (held === undefined || held.callId !== call.id) {
         return failedResult(
           call,
           context.now,
@@ -188,7 +211,7 @@ export function createMessageRequestTool(options: MessageRequestToolOptions): To
         );
       }
 
-      const request = prepared.envelope;
+      const request = held.envelope;
       const delivery = await options.deliverAuthorizedMessage(
         context,
         structuredClone(request),

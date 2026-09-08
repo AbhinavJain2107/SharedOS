@@ -1457,10 +1457,11 @@ export class SharedOSKernel {
     const resolved = this.#tools.copy();
 
     if (this.#messageTransport !== undefined && this.#messageRequestRouter !== undefined) {
-      // Constructed per call, deliberately. The handler holds the envelope it
-      // prepared between `resolveRequirement` and `invoke`, so one instance per
-      // call is what keeps that state from being shared by concurrent calls.
-      // This is not a construction to hoist beside the copy above.
+      // Constructed with the derivation, which is now once per turn rather than
+      // once per call. It carries the envelope it prepared between
+      // `resolveRequirement` and `invoke`, and that state is keyed on the call
+      // object rather than held on the handler, so concurrent calls in one turn
+      // do not share it.
       resolved.register(
         createMessageRequestTool({
           capabilityResolver: this.#messageCapabilityResolver,
