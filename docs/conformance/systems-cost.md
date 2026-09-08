@@ -5,7 +5,7 @@ costs. No model is in any span on this page: the in-process path drives the
 scripted adversary against one fixed world, and the toolshare path drives the
 real MCP server with the frames a client would send.
 
-- SharedOS: `0.1.0-alpha.4`
+- SharedOS: `0.1.0-alpha.5`
 - Measurement rules: version `1`
 - Workload: 24 issuable attempts per turn, 200 measured turns after 60 discarded
 - Cases: `forged-grant`, `hidden-tool`, `read-to-mutation`, `namespace-crossing`, `tool-ceiling-escape`, `invalid-tool-result`, `grant-material`, `rollback-unavailable`, `record-completeness`

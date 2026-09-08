@@ -87,8 +87,8 @@ into an issue, pull request, shell history, or chat.
 ```bash
 git switch main
 git pull --ff-only
-git tag -a v0.1.0-alpha.4 -m "SharedOS v0.1.0-alpha.4"
-SHAREDOS_RELEASE_CONFIRM=v0.1.0-alpha.4 pnpm release:publish
+git tag -a v0.1.0-alpha.5 -m "SharedOS v0.1.0-alpha.5"
+SHAREDOS_RELEASE_CONFIRM=v0.1.0-alpha.5 pnpm release:publish
 ```
 
 `release:publish` requires a clean worktree, the exact version tag on `HEAD`,
@@ -101,7 +101,7 @@ Pushing the tag runs `release.yml`, which repeats the verification and
 publishes whatever the tag's version is missing on the registry:
 
 ```bash
-git push origin v0.1.0-alpha.4
+git push origin v0.1.0-alpha.5
 ```
 
 With trusted publishing configured, pushing the tag is the whole release and
