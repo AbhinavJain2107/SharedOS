@@ -1301,7 +1301,7 @@ Defined in: [packages/core/src/kernel.ts:313](https://github.com/Aicoo-Team/Shar
 
 > **sendMessage**(`context`, `envelope`, `options?`): `Promise`\<\{ `messageId`: `string`; `metadata?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `status`: `"accepted"`; `timestamp`: `string`; \} \| \{ `messageId`: `string`; `metadata?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `status`: `"delivered"`; `timestamp`: `string`; \} \| \{ `error`: \{ `code`: `string`; `details?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `message`: `string`; `retryable?`: `boolean`; \}; `messageId`: `string`; `metadata?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `status`: `"denied"`; `timestamp`: `string`; \} \| \{ `error`: \{ `code`: `string`; `details?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `message`: `string`; `retryable?`: `boolean`; \}; `messageId`: `string`; `metadata?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `status`: `"failed"`; `timestamp`: `string`; \}\>
 
-Defined in: [packages/core/src/kernel.ts:1379](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L1379)
+Defined in: [packages/core/src/kernel.ts:1385](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L1385)
 
 ###### Parameters
 
@@ -1382,11 +1382,36 @@ Defined in: [packages/core/src/tool-registry.ts:35](https://github.com/Aicoo-Tea
 
 #### Methods
 
+##### copy()
+
+> **copy**(): [`ToolRegistry`](#toolregistry)
+
+Defined in: [packages/core/src/tool-registry.ts:87](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L87)
+
+A registry holding the same registrations as this one.
+
+The entries are shared, not re-registered. Every one of them has already
+been contract-validated, cloned and deep-frozen by [register](#register-1), and
+what that produced is immutable, so re-deriving it spends one schema parse
+and one JSON round trip per tool to arrive at an equal value. That was
+being paid on the path of every mediated call, where the kernel builds the
+effective catalogue by re-registering its whole static registry.
+
+Copying keeps both properties the rebuild was relied on for: the copy
+carries the names, so registering a colliding one still raises
+[DuplicateRegistrationError](#duplicateregistrationerror), and later registrations land on the
+copy alone -- a host registry is never mutated by the call that adds
+context-supplied tools beside it.
+
+###### Returns
+
+[`ToolRegistry`](#toolregistry)
+
 ##### definitions()
 
 > **definitions**(): readonly `object`[]
 
-Defined in: [packages/core/src/tool-registry.ts:79](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L79)
+Defined in: [packages/core/src/tool-registry.ts:103](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L103)
 
 ###### Returns
 
@@ -1396,7 +1421,7 @@ readonly `object`[]
 
 > **get**(`name`): [`ToolHandler`](#toolhandler) \| `undefined`
 
-Defined in: [packages/core/src/tool-registry.ts:71](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L71)
+Defined in: [packages/core/src/tool-registry.ts:95](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L95)
 
 ###### Parameters
 
@@ -1412,7 +1437,7 @@ Defined in: [packages/core/src/tool-registry.ts:71](https://github.com/Aicoo-Tea
 
 > **handlers**(): readonly [`ToolHandler`](#toolhandler)[]
 
-Defined in: [packages/core/src/tool-registry.ts:85](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L85)
+Defined in: [packages/core/src/tool-registry.ts:109](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L109)
 
 ###### Returns
 
@@ -1422,7 +1447,7 @@ readonly [`ToolHandler`](#toolhandler)[]
 
 > **has**(`name`): `boolean`
 
-Defined in: [packages/core/src/tool-registry.ts:75](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L75)
+Defined in: [packages/core/src/tool-registry.ts:99](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L99)
 
 ###### Parameters
 
@@ -1438,7 +1463,7 @@ Defined in: [packages/core/src/tool-registry.ts:75](https://github.com/Aicoo-Tea
 
 > **namespaceCatalog**(`enabledToolNamespaces`): `object`
 
-Defined in: [packages/core/src/tool-registry.ts:91](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L91)
+Defined in: [packages/core/src/tool-registry.ts:115](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L115)
 
 ###### Parameters
 

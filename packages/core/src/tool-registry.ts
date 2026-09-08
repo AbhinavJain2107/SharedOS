@@ -68,6 +68,30 @@ export class ToolRegistry {
     this.#tools.set(name, registered);
   }
 
+  /**
+   * A registry holding the same registrations as this one.
+   *
+   * The entries are shared, not re-registered. Every one of them has already
+   * been contract-validated, cloned and deep-frozen by {@link register}, and
+   * what that produced is immutable, so re-deriving it spends one schema parse
+   * and one JSON round trip per tool to arrive at an equal value. That was
+   * being paid on the path of every mediated call, where the kernel builds the
+   * effective catalogue by re-registering its whole static registry.
+   *
+   * Copying keeps both properties the rebuild was relied on for: the copy
+   * carries the names, so registering a colliding one still raises
+   * {@link DuplicateRegistrationError}, and later registrations land on the
+   * copy alone -- a host registry is never mutated by the call that adds
+   * context-supplied tools beside it.
+   */
+  copy(): ToolRegistry {
+    const copied = new ToolRegistry();
+    for (const [name, handler] of this.#tools) {
+      copied.#tools.set(name, handler);
+    }
+    return copied;
+  }
+
   get(name: string): ToolHandler | undefined {
     return this.#tools.get(name);
   }

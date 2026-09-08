@@ -1312,12 +1312,18 @@ export class SharedOSKernel {
     context: AccessContext,
     signal: AbortSignal | undefined,
   ): Promise<ToolRegistry> {
-    const resolved = new ToolRegistry();
-    for (const handler of this.#tools.handlers()) {
-      resolved.register(handler);
-    }
+    // Copied rather than re-registered. `#tools` holds handlers `register` has
+    // already validated, cloned and frozen, and re-deriving them per call spent
+    // a schema parse and a JSON round trip each to arrive at equal values. The
+    // copy is what every registration below lands on, so a host registry handed
+    // in as `options.tools` is still never mutated by resolving a catalogue.
+    const resolved = this.#tools.copy();
 
     if (this.#messageTransport !== undefined && this.#messageRequestRouter !== undefined) {
+      // Constructed per call, deliberately. The handler holds the envelope it
+      // prepared between `resolveRequirement` and `invoke`, so one instance per
+      // call is what keeps that state from being shared by concurrent calls.
+      // This is not a construction to hoist beside the copy above.
       resolved.register(
         createMessageRequestTool({
           capabilityResolver: this.#messageCapabilityResolver,
