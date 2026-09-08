@@ -240,6 +240,43 @@ each entry calls out what a host has to update.
   `resolveRequirement` and `invoke` and one instance per call is what keeps that
   state from being shared by concurrent calls.
 
+- **Registering a tool reads its JSON Schema without the recursive value schema.**
+  `ToolRegistry.register` held every definition to `ToolDefinitionSchema`, whose
+  `inputSchema`, `outputSchema` and `metadata` are `JsonObjectSchema` — a union
+  tried at every branch of every node. On the shipped `messages.request`
+  definition, whose `inputSchema` is a nested `oneOf`, deciding that its JSON
+  Schema is JSON cost 1244 µs of a 1302 µs parse: 93% of the 1340 µs the
+  registration took. Those three fields are now read by the same single-pass walk
+  the kernel already uses for a tool parser's return value, and the schema is
+  shown an empty object where each one was, so it still decides which fields are
+  required, which are optional and which are unknown, and it still decides every
+  other field itself. The walk's verdict is held to `JsonObjectSchema`'s over
+  forty-nine shapes, and `register`'s whole result to what it produced before over
+  thirty more in each of the three fields.
+
+  The walk parses a copy of the definition, so it is taken only where the copy
+  cannot say something different from the original: a plain-prototype object
+  whose own properties are all enumerable data properties, with
+  `Object.prototype` unpolluted. A definition that inherits a field, hides one
+  behind a non-enumerable descriptor or a getter, or arrives carried by an array
+  or a `Date`, goes to the schema exactly as it was passed — the path this
+  replaced, unchanged — because a spread would drop what `z.object` reads
+  through the prototype chain and what `.strict()` collects with `for...in`.
+  Whether a definition is accepted, and what it holds once registered, is
+  therefore the same as before for every definition, not only for the common
+  ones.
+
+  Registering `messages.request` reads 70 µs against 1340, and the conformance
+  world's nineteen definitions 723 µs against 7334. Since a catalogue is resolved
+  once per turn this is a per-turn cost, paid where the turn's catalogue is
+  derived, so `docs/conformance/systems-cost.md` — every figure in which is a span
+  inside one mediated call — is unchanged and cannot show it.
+
+  Nothing a definition holds changes. The JSON round trip that follows the schema
+  is kept over the whole definition rather than left to the copy the walk makes,
+  because it is the only step that normalizes `-0` to `0`, and a registration that
+  quietly stopped doing that would hold a different value.
+
 ## 0.1.0-alpha.4
 
 ### Changed — breaking
