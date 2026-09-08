@@ -71,7 +71,7 @@ carrying the row's own wording — invariant, expected outcome, and every
 attempt's expectation — so the result table is regenerated from the definitions
 rather than transcribed beside them. The committed manifest,
 `docs/conformance/kernel-conformance.md`, is that table: it is where the rows,
-their signals, and each column's cell are read. The twenty-six moves, by what
+their signals, and each column's cell are read. The twenty-nine moves, by what
 they attack:
 
 - **Authority a message cannot mint:** `forged_grant`, `read_to_mutation`,
@@ -79,7 +79,9 @@ they attack:
   `bounded_grant_exhausted`, `over_broad_delegation`.
 - **Boundaries:** `hidden_tool`, `namespace_crossing`, `tool_ceiling_escape`,
   `rollback_unavailable`, `rollback_out_of_scope`, `broker_ungranted`,
-  `broker_out_of_scope`.
+  `broker_out_of_scope`, `host_policy_denied` -- the last being a boundary the
+  host draws rather than the grant store: a grant covers the path and the
+  product ceiling overrides it (ADR 0020).
 - **Failing closed:** `usage_store_unavailable`, `authority_unavailable`,
   `invalid_tool_result`, `budget_exceeded`.
 - **The runtime's reach:** `grant_material_unreachable`.
@@ -90,6 +92,11 @@ they attack:
   transport declines the dispatch under a route lease that closed after that
   authorization, and the claim is that the kernel neither overrides that refusal
   nor loses it (ADR 0025).
+- **What a turn is answered from:** `catalogue_moved_mid_turn` -- the catalogue a
+  turn published is the one its calls are answered from, whatever a per-context
+  provider would say a moment later. The provider moves the tool's declared
+  capability under the turn and nothing about authority moves at all, which is
+  what separates the question from every other mid-turn row (ADR 0026).
 - **Declared and not built:** `typed_governed_views`, `replay_freshness`.
 
 The last two rows are declared and not built. They are here rather than omitted

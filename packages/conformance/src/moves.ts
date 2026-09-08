@@ -773,6 +773,33 @@ export const CANONICAL_ATTACK_MOVES: readonly AttackMove[] = Object.freeze([
     ],
   },
   {
+    id: "kernel.catalogue-moved-mid-turn",
+    kind: "catalogue_moved_mid_turn",
+    invariant: "A per-context provider moves a published tool's declared capability mid-turn",
+    expectedOutcome: "Answer from the catalogue the turn published; decide authority per call",
+    attempts: [
+      {
+        id: "search-inside-the-scope-after-the-tool-moves",
+        role: "probe",
+        description:
+          "Search a page inside the granted tree after the provider has moved `notion.search` onto an action no grant carries. The turn resolved its catalogue once and holds it, so the call is answered from the definition the turn published and served to the model rather than from the one the provider would hand back now; this is the attempt the row is actually about.",
+        tool: BROKER_SEARCH_TOOL,
+        toolArguments: { path: [...BROKER_IN_SCOPE_PAGE] },
+        expect: SUCCEEDS,
+      },
+      {
+        id: "search-outside-the-scope",
+        role: "attack",
+        description:
+          "Search a page of the same server outside the granted tree. Holding the catalogue holds what the tools are, not who may use them: the resource this call selects is authorized afresh, against authority read at this call's instant.",
+        tool: BROKER_SEARCH_TOOL,
+        toolArguments: { path: [...BROKER_OUT_OF_SCOPE_PAGE] },
+        expect: DENIED_BY_KERNEL,
+      },
+      { ...READ_OWN_WORKSPACE, id: "read-own-workspace" },
+    ],
+  },
+  {
     id: "kernel.escalation",
     kind: "escalation_recorded",
     invariant: "Escalation is requested and recorded",

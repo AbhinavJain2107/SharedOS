@@ -88,7 +88,7 @@ import { SPAN, measure, type SpanSink } from "./spans.js";
 import { type ContextToolProvider, type ToolHandler, ToolRegistry } from "./tool-registry.js";
 import type { ToolNamespaceSettingsStore } from "./tool-namespace-control.js";
 import { DuplicateRegistrationError, MissingRegistrationError } from "./errors.js";
-import { deepFreeze, readJsonObject, throwIfAborted } from "./internal.js";
+import { deepFreeze, raceAbort, readJsonObject, throwIfAborted } from "./internal.js";
 
 export interface SharedOSKernelOptions {
   /**
@@ -246,10 +246,42 @@ export function agentExecutionCapability(agent: Address, owner: Address): Capabi
   };
 }
 
+/**
+ * One turn's shared catalogue derivation, and who is still waiting on it.
+ *
+ * The derivation runs under a signal of its own rather than under the signal
+ * of whichever operation happened to need a catalogue first. Sharing one
+ * derivation is the point; sharing one caller's cancellation is not, and a
+ * turn's operations abort independently of each other.
+ */
+interface HeldRegistry {
+  readonly promise: Promise<ToolRegistry>;
+  readonly controller: AbortController;
+  /** Operations still awaiting it. At zero, nobody is left to answer. */
+  waiting: number;
+  settled: boolean;
+}
+
 /** One turn's frozen authority, and the number of open handles on it. */
 interface AuthorityLease {
   refs: number;
   readonly resolution: AuthorityResolution;
+  /**
+   * The effective registry this turn resolved, once an operation needed one.
+   *
+   * The promise rather than the value, so operations that need a catalogue at
+   * the same moment share one derivation instead of racing to produce two
+   * (ADR 0026).
+   */
+  registry?: HeldRegistry | undefined;
+  /**
+   * The catalogue identity this turn published, once it has published one.
+   *
+   * Set by `listTools`, which is where a catalogue is filtered to what the
+   * caller may see and hashed. A turn that never listed carries none, and its
+   * calls say nothing rather than naming a catalogue nobody was served.
+   */
+  catalogHash?: string | undefined;
 }
 
 /**
@@ -740,7 +772,7 @@ export class SharedOSKernel {
           outcome: "denied",
           reason: "authority_unavailable",
           metadata: {
-            catalogHash: await catalogHash([]),
+            catalogHash: this.#holdCatalogHash(context, await catalogHash([])),
             enabledNamespaces: [...context.enabledToolNamespaces],
             withheldCount: 0,
             failClosed: true,
@@ -802,7 +834,10 @@ export class SharedOSKernel {
           // keeps the one distinction a reader cannot do without: whether
           // something was withheld by an outage rather than by a decision
           // (ADR 0023).
-          catalogHash: await catalogHash(publishToolCatalog(allowed)),
+          catalogHash: this.#holdCatalogHash(
+            context,
+            await catalogHash(publishToolCatalog(allowed)),
+          ),
           enabledNamespaces: [...context.enabledToolNamespaces],
           ...(hostPolicy?.status === "loaded" ? { hostPolicyVersion: hostPolicy.version } : {}),
           withheldCount,
@@ -968,8 +1003,10 @@ export class SharedOSKernel {
 
     let tools: ToolRegistry;
     try {
-      // Named separately because it is re-derived per call, and a number that
-      // could not be attributed to it would read as the cost of authorizing.
+      // Named separately because the segment is the catalogue's, and a number
+      // that could not be attributed to it would read as the cost of
+      // authorizing. Inside a turn this reads the held resolution, so what the
+      // span reports after the first operation is the holding, not a derivation.
       tools = await measure(this.#spans, SPAN.TOOL_CATALOGUE, (span) => {
         span.set("callId", call.id);
         return this.#resolveToolRegistry(context, options.signal);
@@ -1308,7 +1345,107 @@ export class SharedOSKernel {
     return result;
   }
 
+  /**
+   * The effective tool registry this turn is answered from.
+   *
+   * Resolved once and held on the turn's authority lease, so every operation a
+   * turn makes reads the same catalogue: the one `catalogHash` names, the one
+   * the MCP handshake's `listChanged` of `false` promises a client, and the one
+   * the model was shown. A `ContextToolProvider` is host-supplied and live --
+   * the MCP server behind it reconnects, the configuration behind it is
+   * re-read -- so re-deriving per operation let a turn's second call be decided
+   * against a definition its first call never saw, carrying a
+   * `requiredCapability` the recorded catalogue never advertised (ADR 0026).
+   *
+   * An operation outside a lease resolves its own, which is a turn of one
+   * operation: the degrade ADR 0010 already defines for authority, and the
+   * reason this guarantee needs nothing threaded through a host to hold.
+   *
+   * A rejection is not held. It is not a catalogue, the operation that met it
+   * fails closed on its own, and holding one would let an abort belonging to a
+   * single caller's signal answer for the rest of the turn.
+   *
+   * Which is also why the derivation does not run under the signal of the
+   * operation that started it. That signal belongs to one caller, and a caller
+   * that gives up would otherwise cancel the derivation every other operation
+   * in the turn is waiting on -- failing them `tool_catalog_unavailable`, or
+   * throwing its `AbortError` at an operation that passed no signal at all.
+   * Each caller instead waits against its own signal, and the shared
+   * derivation is cancelled only once every caller waiting on it has gone.
+   */
   async #resolveToolRegistry(
+    context: AccessContext,
+    signal: AbortSignal | undefined,
+  ): Promise<ToolRegistry> {
+    const lease = this.#leases.get(turnAuthorityKey(context));
+    if (lease === undefined) {
+      return this.#deriveToolRegistry(context, signal);
+    }
+
+    const held = (lease.registry ??= this.#holdRegistry(lease, context));
+    held.waiting += 1;
+    try {
+      return await raceAbort(held.promise, signal);
+    } finally {
+      held.waiting -= 1;
+      // Nobody is left to be answered, so the work nobody asked for any more is
+      // cancelled. Guarded on `settled` so a derivation that already produced a
+      // catalogue is not sent an abort its provider could still be holding.
+      if (held.waiting === 0 && !held.settled) {
+        held.controller.abort();
+      }
+    }
+  }
+
+  /** Start this turn's one derivation, under a signal no single caller owns. */
+  #holdRegistry(lease: AuthorityLease, context: AccessContext): HeldRegistry {
+    const controller = new AbortController();
+    const held: HeldRegistry = {
+      controller,
+      waiting: 0,
+      settled: false,
+      promise: this.#deriveToolRegistry(context, controller.signal),
+    };
+    held.promise.then(
+      () => {
+        held.settled = true;
+      },
+      () => {
+        held.settled = true;
+        // Not held: a rejection is not a catalogue, and a later operation in
+        // the turn is entitled to try again. Guarded so a rejection arriving
+        // after another operation already began a fresh derivation does not
+        // discard that one too.
+        if (lease.registry === held) {
+          lease.registry = undefined;
+        }
+      },
+    );
+    return held;
+  }
+
+  /**
+   * Hold the catalogue identity this turn published, and hand it back.
+   *
+   * `catalogHash` said which catalogue a listing served and nothing said which
+   * one a call was answered from, so the correspondence between them was a
+   * claim in a comment rather than anything a reader could check. Holding it
+   * beside the resolution it identifies is what lets `tool.invoked` carry it:
+   * the two events then join on a value, and a turn's calls are attributable to
+   * the catalogue its model was shown.
+   *
+   * Returned rather than only stored, so the event being built reads the same
+   * value that was held instead of computing it twice.
+   */
+  #holdCatalogHash(context: AccessContext, hash: string): string {
+    const lease = this.#leases.get(turnAuthorityKey(context));
+    if (lease !== undefined) {
+      lease.catalogHash = hash;
+    }
+    return hash;
+  }
+
+  async #deriveToolRegistry(
     context: AccessContext,
     signal: AbortSignal | undefined,
   ): Promise<ToolRegistry> {
@@ -1320,10 +1457,11 @@ export class SharedOSKernel {
     const resolved = this.#tools.copy();
 
     if (this.#messageTransport !== undefined && this.#messageRequestRouter !== undefined) {
-      // Constructed per call, deliberately. The handler holds the envelope it
-      // prepared between `resolveRequirement` and `invoke`, so one instance per
-      // call is what keeps that state from being shared by concurrent calls.
-      // This is not a construction to hoist beside the copy above.
+      // Constructed with the derivation, which is now once per turn rather than
+      // once per call. It carries the envelope it prepared between
+      // `resolveRequirement` and `invoke`, and that state is keyed on the call
+      // object rather than held on the handler, so concurrent calls in one turn
+      // do not share it.
       resolved.register(
         createMessageRequestTool({
           capabilityResolver: this.#messageCapabilityResolver,
@@ -1837,6 +1975,7 @@ export class SharedOSKernel {
     detail: ToolResultAuditDetail = {},
   ): Promise<void> {
     const { grantId, requirement, cause } = detail;
+    const catalogueServed = this.#leases.get(turnAuthorityKey(context))?.catalogHash;
     await this.#recordOutcome(
       this.#auditEvent(context, {
         type: "tool.invoked",
@@ -1856,6 +1995,14 @@ export class SharedOSKernel {
           // recording too -- anything in audit was the kernel's -- and a fact
           // with nowhere to live the moment that stopped being true (ADR 0023).
           source: "kernel",
+          // Which catalogue answered it. The turn resolves one and holds it
+          // (ADR 0026), so this is the same value the turn's `tool.catalog.listed`
+          // carries, and the two join on it: a reader can say which calls a
+          // catalogue produced without inferring it from time order. Absent on a
+          // call whose turn never listed -- a turn of one operation, or a host
+          // that invokes without discovering -- because there is no catalogue
+          // the caller was shown to name.
+          ...(catalogueServed === undefined ? {} : { catalogHash: catalogueServed }),
           // `tool_unavailable` is one code over several situations by design,
           // so the model cannot tell them apart. An audit reader is not the
           // model. `reason` stays the code the caller was given and this says

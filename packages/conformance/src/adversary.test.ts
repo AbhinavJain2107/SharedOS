@@ -151,6 +151,7 @@ describe("the hostile runtime", () => {
       "rollback_out_of_scope",
       "broker_ungranted",
       "broker_out_of_scope",
+      "catalogue_moved_mid_turn",
       "escalation_recorded",
       "escalation_refused",
       "runtime_crashed",

@@ -278,9 +278,12 @@ const mcpTools: ContextToolProvider = {
 const kernel = new SharedOSKernel({ toolProviders: [mcpTools] });
 ```
 
-The provider is called with exactly one trusted context, and the handlers it
-returns are used for that call only. Nothing it returns is cached into a shared
-registry.
+The provider is called with exactly one trusted context, once per turn, and the
+handlers it returns are held for that turn only. Nothing it returns is cached
+into a shared registry. A provider that changes what it returns part-way
+through a turn does not change what that turn is answered from: the catalogue
+resolved for the turn is the one its listing published and the one its calls
+are decided against (ADR 0026).
 
 If a provider throws, the catalog request fails with `tool_catalog_unavailable`
 rather than silently returning a partial list — a truncated catalog would read

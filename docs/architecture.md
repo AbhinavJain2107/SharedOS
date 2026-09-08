@@ -235,9 +235,11 @@ usable tool = registered for this context
 ```
 
 Static tools use `ToolRegistry`. User-specific MCP or connector catalogs use a
-`ContextToolProvider`; the kernel builds an ephemeral registry per operation so
-one user's reload cannot mutate another user's catalog. `listToolNamespaces`
-aggregates the available context-specific namespaces and their enabled state.
+`ContextToolProvider`; the kernel builds an ephemeral registry so one user's
+reload cannot mutate another user's catalog, and resolves it once per turn
+rather than per operation, so the catalogue a turn is answered from is the one
+it published (ADR 0026). `listToolNamespaces` aggregates the available
+context-specific namespaces and their enabled state.
 
 The built-in `messages.request` tool is similarly narrow. The model supplies
 only a recipient and JSON-safe payload; the trusted context supplies sender,

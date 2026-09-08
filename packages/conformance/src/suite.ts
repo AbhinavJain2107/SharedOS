@@ -341,6 +341,27 @@ export const CANONICAL_CONFORMANCE_CASES: readonly ConformanceCase[] = Object.fr
       },
     ],
   },
+  /**
+   * The provider is the thing that moves, and nothing else in the world does.
+   *
+   * Every other row that changes something mid-turn changes authority: a store
+   * edit, a clock, a route. This one holds authority completely still and moves
+   * the catalogue instead, which is the only way to ask which catalogue a call
+   * was answered from. The move is armed on the provider by trusted setup, never
+   * by the adversary, exactly as a revocation is armed on the store.
+   */
+  {
+    id: "catalogue-moved-mid-turn",
+    move: canonicalMove("catalogue_moved_mid_turn"),
+    conditions: [
+      {
+        id: "tool-moved-after-the-catalogue-was-served",
+        description:
+          "The provider publishes `notion.search` for the turn's listing and then moves its declared capability onto an action no grant carries, so a second listing would answer differently from the first. A grant covers `search` over `Handbook` throughout: nothing about authority changes while the turn runs, and the only thing that moves is what the provider would say the tool requires. The row runs one turn, which is the point -- both instants are inside it.",
+        world: { brokerMovedAfterListing: true },
+      },
+    ],
+  },
   {
     id: "escalation",
     move: canonicalMove("escalation_recorded"),

@@ -175,9 +175,9 @@ export const UNREGISTERED_TOOL = "admin.grant.issue";
  * Every other tool in this world is registered statically, the way a host's own
  * tools are. This one arrives through {@link ContextToolProvider}, which is the
  * port ADR 0006 reserves for user-connected MCP servers and other per-context
- * catalogues -- resolved for exactly one access context and merged into an
- * ephemeral registry for that one operation, rather than mutating a registry
- * concurrent turns share.
+ * catalogues -- resolved for exactly one access context and merged into a
+ * registry that turn holds, rather than mutating a registry concurrent turns
+ * share (ADR 0026).
  *
  * That difference is the whole reason these rows exist. The invariant is the one
  * every native tool is already held to; what is unverified is whether it still
@@ -193,6 +193,21 @@ export const BROKER_NAMESPACE = "notion";
 export const BROKER_PROVIDER_ID = "notion-mcp";
 export const BROKER_SEARCH_TOOL = "notion.search";
 export const BROKER_ACTION = "search";
+/**
+ * The action the broker moves its tool onto after a catalogue has been served.
+ *
+ * No grant anywhere carries it, so the moved definition fails the discovery
+ * filter. A turn that re-derived its catalogue would find `notion.search`
+ * undiscoverable half-way through and refuse a call against a tool it had
+ * already published and served to the model; a turn that holds its resolution
+ * never asks for the moved definition at all (ADR 0026).
+ *
+ * The declared capability moves and `resolveRequirement` does not, so the
+ * per-call decision is held constant across the two. What the row separates is
+ * which catalogue a call is answered from -- not whether a moved tool would
+ * also be refused for a second reason.
+ */
+export const BROKER_MOVED_ACTION = "administer";
 /** The page tree the brokered grant covers, and one page inside it. */
 export const BROKER_GRANTED_PATH = ["Handbook"] as const;
 export const BROKER_IN_SCOPE_PAGE = ["Handbook", "onboarding"] as const;
@@ -1106,7 +1121,7 @@ export class ConformanceFileStore {
  * the tool when it existed could not tell "the host never registered it" from
  * "the turn never asked", and the first is the thing being measured.
  */
-export function brokerToolDefinition(): ToolDefinition {
+export function brokerToolDefinition(action: string = BROKER_ACTION): ToolDefinition {
   return {
     name: BROKER_SEARCH_TOOL,
     description: "Search a page of the brokered workspace",
@@ -1122,7 +1137,7 @@ export function brokerToolDefinition(): ToolDefinition {
     // `notion`, and absent from the catalogue when none does.
     requiredCapability: {
       resource: { namespace: BROKER_NAMESPACE, path: [] },
-      action: BROKER_ACTION,
+      action,
     },
     annotations: { readOnly: true },
   };
@@ -1154,20 +1169,31 @@ export class ConformanceBrokerStore {
    */
   readonly listings: string[] = [];
 
+  readonly #movesAfterListing: boolean;
+
+  constructor(options: { readonly movesAfterListing?: boolean } = {}) {
+    this.#movesAfterListing = options.movesAfterListing === true;
+  }
+
   provider(): ContextToolProvider {
     return {
       id: BROKER_PROVIDER_ID,
       listTools: async (context) => {
         await Promise.resolve();
         this.listings.push(context.namespaceId);
-        return [this.#searchHandler()];
+        // Armed, the first listing publishes the tool and every listing after
+        // it publishes the moved one. A turn that holds its resolution asks
+        // once, so the moved definition is reachable only by a turn that went
+        // back to the provider part-way through (ADR 0026).
+        const moved = this.#movesAfterListing && this.listings.length > 1;
+        return [this.#searchHandler(moved ? BROKER_MOVED_ACTION : BROKER_ACTION)];
       },
     };
   }
 
-  #searchHandler(): ToolHandler {
+  #searchHandler(action: string = BROKER_ACTION): ToolHandler {
     return {
-      definition: brokerToolDefinition(),
+      definition: brokerToolDefinition(action),
       parseArguments: (arguments_) => arguments_,
       resolveRequirement: (context, call) => ({
         resource: {
@@ -1606,6 +1632,17 @@ export interface ConformanceWorldOptions {
    */
   readonly broker?: "registered" | "granted";
   /**
+   * Move the brokered tool's declared capability after the first listing.
+   *
+   * Implies {@link broker} `granted`: the tool has to be published, and
+   * genuinely usable, before moving it says anything. The move is armed on the
+   * provider rather than in the grant store, and that is the claim -- nothing
+   * about authority changes while the turn runs, and a turn that re-derived
+   * would refuse a published tool on the strength of a definition the
+   * catalogue it recorded never carried.
+   */
+  readonly brokerMovedAfterListing?: boolean;
+  /**
    * Withhold the grant over the escalation affordance.
    *
    * The baseline world issues `ESCALATION_GRANT`, so the escalation row tests
@@ -1679,17 +1716,20 @@ export function createConformanceWorld(
 ): ConformanceWorld {
   const now = options.now ?? CONFORMANCE_NOW;
   const bounded = options.bounded === true || options.usageStoreUnavailable === true;
+  // A moved tool has to be a published one first, so arming the move arms the
+  // grant that publishes it.
+  const broker = options.brokerMovedAfterListing === true ? ("granted" as const) : options.broker;
   const agent = [
     ...agentGrants(),
     ...(bounded ? boundedGrants() : []),
     ...(options.overBroadDelegation === true ? overBroadGrants() : []),
     ...(options.restorable === true ? restoreGrants() : []),
-    ...(options.broker === "granted" ? brokerGrants() : []),
+    ...(broker === "granted" ? brokerGrants() : []),
   ].filter((grant) => options.escalation !== "withheld" || grant.id !== ESCALATION_GRANT);
   const all = [
     ...rootGrants(),
     ...(options.restorable === true ? restoreRootGrants() : []),
-    ...(options.broker === "granted" ? brokerRootGrants() : []),
+    ...(broker === "granted" ? brokerRootGrants() : []),
     ...agent,
   ];
   const grantSource = new ConformanceGrantSource(agent);
@@ -1736,7 +1776,9 @@ export function createConformanceWorld(
   }
   const messageRouter = new RecordingMessageRouter(transport);
   const files = new ConformanceFileStore();
-  const broker = new ConformanceBrokerStore();
+  const brokerStore = new ConformanceBrokerStore({
+    movesAfterListing: options.brokerMovedAfterListing === true,
+  });
   const kernel = new SharedOSKernel({
     grantSource,
     audit,
@@ -1779,8 +1821,8 @@ export function createConformanceWorld(
   for (const handler of handlers) {
     kernel.registerTool(handler);
   }
-  if (options.broker !== undefined) {
-    kernel.registerToolProvider(broker.provider());
+  if (broker !== undefined) {
+    kernel.registerToolProvider(brokerStore.provider());
   }
 
   const context: AccessContext = {
@@ -1819,7 +1861,7 @@ export function createConformanceWorld(
     clock,
     context,
     files,
-    broker,
+    broker: brokerStore,
     grantSource,
     chain,
     auditEvents: audit.events,
