@@ -111,12 +111,23 @@ within the turn it is called in.
   registry is observably staler than today's, and it follows from a key that
   deliberately excludes namespace enablement.
 - Catalogue resolution leaves the per-call cost path entirely; what remains of it
-  is per turn.
-- The conformance suite needs a case it does not have: a provider that mutates a
-  definition between two calls in one turn. Nothing exercises a
-  `ContextToolProvider` in the benched world at all today.
-- Making the claim checkable in audit -- carrying `catalogHash` onto the events a
-  call leaves behind -- is a change to what is recorded, and is not this decision.
+  is per turn. Measured, the segment falls from 1.33 ms to 14.3 µs and from 45%
+  of a mediated call to under 1%, and a whole call from 2.44 ms to 968 µs
+  (`docs/conformance/systems-cost.md`). It is a consequence and not the
+  argument: the cost case was already settled by the registry copy, above.
+- The conformance suite gains the row it did not have.
+  `catalogue-moved-mid-turn` publishes `notion.search` for the turn's listing and
+  then moves its declared capability onto an action no grant carries, so a second
+  listing answers differently from the first. Its probe -- a call inside the
+  granted tree, made after the move -- passes in all six columns with this
+  decision and fails in all six without it, which is what makes the row evidence
+  rather than a description of intent. Its attack, the same tool outside the
+  granted tree, is still denied `no_matching_grant`: what the turn holds is the
+  catalogue, not the decision.
+- Making the claim checkable in audit is a change to what is recorded, and was
+  not this decision. It has since been taken: `tool.invoked` carries the
+  `catalogHash` its turn published, so the two events join on a value rather than
+  on a reader's inference from time order.
 
 ## Rejected alternatives
 
