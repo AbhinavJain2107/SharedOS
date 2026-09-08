@@ -1052,6 +1052,72 @@ describe("SharedOSKernel catalogue resolution", () => {
     expect(listTools).toHaveBeenCalledTimes(1);
   });
 
+  it("lets one operation abandon the shared derivation without answering for the rest", async () => {
+    // Sharing a derivation is the point; sharing a cancellation is not. The
+    // signal belongs to the operation that happened to need a catalogue first,
+    // and a turn's other operations never consented to it.
+    let release!: (tools: readonly ToolHandler[]) => void;
+    const listTools = vi.fn<ContextToolProvider["listTools"]>(
+      async () => await new Promise<readonly ToolHandler[]>((resolve) => (release = resolve)),
+    );
+    const kernel = kernelWith([NOTION_GRANT], { toolProviders: [providerOf(listTools)] });
+    const access = context(["notion"]);
+    const giving_up = new AbortController();
+
+    const scope = await kernel.openTurnAuthority(access);
+    try {
+      const abandoned = kernel.listTools(access, { signal: giving_up.signal });
+      const staying = kernel.invokeTool(access, notionCall("call-1"));
+      const noSignal = kernel.listTools(access);
+      await Promise.resolve();
+
+      giving_up.abort(new Error("this caller gave up"));
+      await expect(abandoned).rejects.toThrow("this caller gave up");
+
+      release([successfulTool(NOTION_TOOL)]);
+      await expect(staying).resolves.toMatchObject({ status: "succeeded" });
+      await expect(noSignal).resolves.toEqual([NOTION_TOOL]);
+    } finally {
+      scope.close();
+    }
+
+    expect(listTools).toHaveBeenCalledTimes(1);
+  });
+
+  it("cancels the shared derivation once every operation waiting on it has gone", async () => {
+    // The other half of the same decision: a derivation nobody is waiting for
+    // is work nobody asked for, so abandoning the last one still cancels it.
+    let derivationSignal: AbortSignal | undefined;
+    const listTools = vi.fn<ContextToolProvider["listTools"]>(
+      async (_context, signal) =>
+        await new Promise<readonly ToolHandler[]>((_resolve, reject) => {
+          derivationSignal = signal;
+          signal.addEventListener("abort", () => reject(new Error("derivation cancelled")));
+        }),
+    );
+    const kernel = kernelWith([NOTION_GRANT], { toolProviders: [providerOf(listTools)] });
+    const access = context(["notion"]);
+    const first = new AbortController();
+    const second = new AbortController();
+
+    const scope = await kernel.openTurnAuthority(access);
+    try {
+      const one = kernel.listTools(access, { signal: first.signal });
+      const two = kernel.listTools(access, { signal: second.signal });
+      await Promise.resolve();
+
+      first.abort(new Error("one gave up"));
+      await expect(one).rejects.toThrow("one gave up");
+      expect(derivationSignal?.aborted).toBe(false);
+
+      second.abort(new Error("two gave up"));
+      await expect(two).rejects.toThrow("two gave up");
+      expect(derivationSignal?.aborted).toBe(true);
+    } finally {
+      scope.close();
+    }
+  });
+
   it("keeps namespace enablement live, because what is held is the unfiltered registry", async () => {
     // The lease key excludes `enabledToolNamespaces` on purpose. It can, because
     // the namespace filter runs per operation over the held registry rather than

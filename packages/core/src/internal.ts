@@ -115,6 +115,32 @@ export function throwIfAborted(signal: AbortSignal | undefined): void {
   }
 }
 
+/**
+ * Await `work`, but stop waiting if `signal` aborts.
+ *
+ * For work one caller shares with others: the caller that gives up rejects
+ * with its own reason and leaves the work running for whoever else is still
+ * waiting on it, instead of taking their answer with it.
+ */
+export function raceAbort<T>(work: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (signal === undefined) {
+    return work;
+  }
+  return new Promise<T>((resolve, reject) => {
+    const abandon = (): void => {
+      reject(signal.reason ?? new Error("operation aborted"));
+    };
+    if (signal.aborted) {
+      abandon();
+      return;
+    }
+    signal.addEventListener("abort", abandon, { once: true });
+    void work.then(resolve, reject).finally(() => {
+      signal.removeEventListener("abort", abandon);
+    });
+  });
+}
+
 export function addressesEqual(left: Address, right: Address): boolean {
   return canonicalJson(left) === canonicalJson(right);
 }

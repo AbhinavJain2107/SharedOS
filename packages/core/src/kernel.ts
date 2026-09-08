@@ -88,7 +88,7 @@ import { SPAN, measure, type SpanSink } from "./spans.js";
 import { type ContextToolProvider, type ToolHandler, ToolRegistry } from "./tool-registry.js";
 import type { ToolNamespaceSettingsStore } from "./tool-namespace-control.js";
 import { DuplicateRegistrationError, MissingRegistrationError } from "./errors.js";
-import { deepFreeze, readJsonObject, throwIfAborted } from "./internal.js";
+import { deepFreeze, raceAbort, readJsonObject, throwIfAborted } from "./internal.js";
 
 export interface SharedOSKernelOptions {
   /**
@@ -246,6 +246,22 @@ export function agentExecutionCapability(agent: Address, owner: Address): Capabi
   };
 }
 
+/**
+ * One turn's shared catalogue derivation, and who is still waiting on it.
+ *
+ * The derivation runs under a signal of its own rather than under the signal
+ * of whichever operation happened to need a catalogue first. Sharing one
+ * derivation is the point; sharing one caller's cancellation is not, and a
+ * turn's operations abort independently of each other.
+ */
+interface HeldRegistry {
+  readonly promise: Promise<ToolRegistry>;
+  readonly controller: AbortController;
+  /** Operations still awaiting it. At zero, nobody is left to answer. */
+  waiting: number;
+  settled: boolean;
+}
+
 /** One turn's frozen authority, and the number of open handles on it. */
 interface AuthorityLease {
   refs: number;
@@ -257,7 +273,7 @@ interface AuthorityLease {
    * the same moment share one derivation instead of racing to produce two
    * (ADR 0026).
    */
-  registry?: Promise<ToolRegistry> | undefined;
+  registry?: HeldRegistry | undefined;
   /**
    * The catalogue identity this turn published, once it has published one.
    *
@@ -1348,6 +1364,14 @@ export class SharedOSKernel {
    * A rejection is not held. It is not a catalogue, the operation that met it
    * fails closed on its own, and holding one would let an abort belonging to a
    * single caller's signal answer for the rest of the turn.
+   *
+   * Which is also why the derivation does not run under the signal of the
+   * operation that started it. That signal belongs to one caller, and a caller
+   * that gives up would otherwise cancel the derivation every other operation
+   * in the turn is waiting on -- failing them `tool_catalog_unavailable`, or
+   * throwing its `AbortError` at an operation that passed no signal at all.
+   * Each caller instead waits against its own signal, and the shared
+   * derivation is cancelled only once every caller waiting on it has gone.
    */
   async #resolveToolRegistry(
     context: AccessContext,
@@ -1357,18 +1381,47 @@ export class SharedOSKernel {
     if (lease === undefined) {
       return this.#deriveToolRegistry(context, signal);
     }
-    lease.registry ??= this.#deriveToolRegistry(context, signal);
-    const pending = lease.registry;
+
+    const held = (lease.registry ??= this.#holdRegistry(lease, context));
+    held.waiting += 1;
     try {
-      return await pending;
-    } catch (error) {
-      // Guarded so a rejection arriving after another operation already began a
-      // fresh derivation does not discard that one too.
-      if (lease.registry === pending) {
-        lease.registry = undefined;
+      return await raceAbort(held.promise, signal);
+    } finally {
+      held.waiting -= 1;
+      // Nobody is left to be answered, so the work nobody asked for any more is
+      // cancelled. Guarded on `settled` so a derivation that already produced a
+      // catalogue is not sent an abort its provider could still be holding.
+      if (held.waiting === 0 && !held.settled) {
+        held.controller.abort();
       }
-      throw error;
     }
+  }
+
+  /** Start this turn's one derivation, under a signal no single caller owns. */
+  #holdRegistry(lease: AuthorityLease, context: AccessContext): HeldRegistry {
+    const controller = new AbortController();
+    const held: HeldRegistry = {
+      controller,
+      waiting: 0,
+      settled: false,
+      promise: this.#deriveToolRegistry(context, controller.signal),
+    };
+    held.promise.then(
+      () => {
+        held.settled = true;
+      },
+      () => {
+        held.settled = true;
+        // Not held: a rejection is not a catalogue, and a later operation in
+        // the turn is entitled to try again. Guarded so a rejection arriving
+        // after another operation already began a fresh derivation does not
+        // discard that one too.
+        if (lease.registry === held) {
+          lease.registry = undefined;
+        }
+      },
+    );
+    return held;
   }
 
   /**

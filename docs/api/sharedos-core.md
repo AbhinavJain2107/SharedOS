@@ -741,7 +741,7 @@ Defined in: [packages/core/src/resource-registry.ts:26](https://github.com/Aicoo
 
 ### SharedOSKernel
 
-Defined in: [packages/core/src/kernel.ts:276](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L276)
+Defined in: [packages/core/src/kernel.ts:292](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L292)
 
 Host-neutral facade for every permission-controlled SharedOS operation.
 AccessContext is a trusted host-created boundary; never construct it from an
@@ -753,7 +753,7 @@ unverified request body.
 
 > **new SharedOSKernel**(`options`): [`SharedOSKernel`](#sharedoskernel)
 
-Defined in: [packages/core/src/kernel.ts:295](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L295)
+Defined in: [packages/core/src/kernel.ts:311](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L311)
 
 ###### Parameters
 
@@ -771,7 +771,7 @@ Defined in: [packages/core/src/kernel.ts:295](https://github.com/Aicoo-Team/Shar
 
 > **admitTurn**(`context`, `agent`, `options?`): `Promise`\<\{ `allowed`: `boolean`; `matchedGrantId?`: `string`; `metadata?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `reasonCode`: `string`; `requiredAuthority?`: \{ `capabilities`: `object`[]; `constraints?`: \{ `delegationDepth?`: `number`; `expiresAt?`: `string`; `maxUses?`: `number`; `notBefore?`: `string`; `purposes?`: `string`[]; \}; `id`: `string`; `metadata?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `namespaceId`: `string`; `owner`: \{ `kind`: `"human"`; `userId`: `string`; \} \| \{ `agentId`: `string`; `kind`: `"agent"`; \} \| \{ `conversationId`: `string`; `kind`: `"group"`; \} \| \{ `kind`: `"service"`; `serviceId`: `string`; \}; `purpose`: `string`; `requestedAt`: `string`; `requester`: \{ `kind`: `"human"`; `userId`: `string`; \} \| \{ `agentId`: `string`; `kind`: `"agent"`; \} \| \{ `conversationId`: `string`; `kind`: `"group"`; \} \| \{ `kind`: `"service"`; `serviceId`: `string`; \}; \}; \}\>
 
-Defined in: [packages/core/src/kernel.ts:409](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L409)
+Defined in: [packages/core/src/kernel.ts:425](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L425)
 
 Consume permission to invoke exactly one target agent turn.
 
@@ -799,7 +799,7 @@ Consume permission to invoke exactly one target agent turn.
 
 > **authorize**(`context`, `request`, `options?`): `Promise`\<\{ `allowed`: `boolean`; `matchedGrantId?`: `string`; `metadata?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `reasonCode`: `string`; `requiredAuthority?`: \{ `capabilities`: `object`[]; `constraints?`: \{ `delegationDepth?`: `number`; `expiresAt?`: `string`; `maxUses?`: `number`; `notBefore?`: `string`; `purposes?`: `string`[]; \}; `id`: `string`; `metadata?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `namespaceId`: `string`; `owner`: \{ `kind`: `"human"`; `userId`: `string`; \} \| \{ `agentId`: `string`; `kind`: `"agent"`; \} \| \{ `conversationId`: `string`; `kind`: `"group"`; \} \| \{ `kind`: `"service"`; `serviceId`: `string`; \}; `purpose`: `string`; `requestedAt`: `string`; `requester`: \{ `kind`: `"human"`; `userId`: `string`; \} \| \{ `agentId`: `string`; `kind`: `"agent"`; \} \| \{ `conversationId`: `string`; `kind`: `"group"`; \} \| \{ `kind`: `"service"`; `serviceId`: `string`; \}; \}; \}\>
 
-Defined in: [packages/core/src/kernel.ts:393](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L393)
+Defined in: [packages/core/src/kernel.ts:409](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L409)
 
 ###### Parameters
 
@@ -825,7 +825,7 @@ Defined in: [packages/core/src/kernel.ts:393](https://github.com/Aicoo-Team/Shar
 
 > **invokeResource**(`context`, `request`, `options?`): `Promise`\<\{ `completedAt`: `string`; `metadata?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `operationId`: `string`; `output`: [`JsonValue`](sharedos-contracts.md#jsonvalue); `status`: `"succeeded"`; \} \| \{ `completedAt`: `string`; `error`: \{ `code`: `string`; `details?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `message`: `string`; `retryable?`: `boolean`; \}; `metadata?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `operationId`: `string`; `status`: `"denied"`; \} \| \{ `completedAt`: `string`; `error`: \{ `code`: `string`; `details?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `message`: `string`; `retryable?`: `boolean`; \}; `metadata?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `operationId`: `string`; `status`: `"failed"`; \}\>
 
-Defined in: [packages/core/src/kernel.ts:1238](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L1238)
+Defined in: [packages/core/src/kernel.ts:1254](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L1254)
 
 ###### Parameters
 
@@ -851,7 +851,7 @@ Defined in: [packages/core/src/kernel.ts:1238](https://github.com/Aicoo-Team/Sha
 
 > **invokeTool**(`context`, `call`, `options?`): `Promise`\<\{ `callId`: `string`; `completedAt`: `string`; `metadata?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `output`: [`JsonValue`](sharedos-contracts.md#jsonvalue); `status`: `"succeeded"`; `tool`: `string`; \} \| \{ `callId`: `string`; `completedAt`: `string`; `error`: \{ `code`: `string`; `details?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `message`: `string`; `retryable?`: `boolean`; \}; `metadata?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `status`: `"denied"`; `tool`: `string`; \} \| \{ `callId`: `string`; `completedAt`: `string`; `error`: \{ `code`: `string`; `details?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `message`: `string`; `retryable?`: `boolean`; \}; `metadata?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `status`: `"failed"`; `tool`: `string`; \}\>
 
-Defined in: [packages/core/src/kernel.ts:940](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L940)
+Defined in: [packages/core/src/kernel.ts:956](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L956)
 
 Re-authorize and dispatch one tool call.
 
@@ -890,7 +890,7 @@ SharedOS. Both spans exist or neither does.
 
 > **listPublishedTools**(`context`, `options`): `Promise`\<\{ `catalogHash`: `string`; `executionId`: `string`; `tools`: `object`[]; `version`: `"1"`; \}\>
 
-Defined in: [packages/core/src/kernel.ts:852](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L852)
+Defined in: [packages/core/src/kernel.ts:868](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L868)
 
 The effective catalogue as an external harness receives it.
 
@@ -929,7 +929,7 @@ harness would have to interpret.
 
 > **listToolNamespaces**(`context`, `options?`): `Promise`\<\{ `namespaces`: `object`[]; `summary`: \{ `disabled`: `number`; `enabled`: `number`; `total`: `number`; \}; \}\>
 
-Defined in: [packages/core/src/kernel.ts:860](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L860)
+Defined in: [packages/core/src/kernel.ts:876](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L876)
 
 ###### Parameters
 
@@ -954,7 +954,7 @@ Defined in: [packages/core/src/kernel.ts:860](https://github.com/Aicoo-Team/Shar
 
 > **listTools**(`context`, `options?`): `Promise`\<readonly `object`[]\>
 
-Defined in: [packages/core/src/kernel.ts:745](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L745)
+Defined in: [packages/core/src/kernel.ts:761](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L761)
 
 ###### Parameters
 
@@ -979,7 +979,7 @@ Defined in: [packages/core/src/kernel.ts:745](https://github.com/Aicoo-Team/Shar
 
 > **openTurnAuthority**(`context`, `options?`): `Promise`\<[`TurnAuthorityScope`](#turnauthorityscope)>\>
 
-Defined in: [packages/core/src/kernel.ts:357](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L357)
+Defined in: [packages/core/src/kernel.ts:373](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L373)
 
 Resolve the authority one turn will be decided against, and hold it.
 
@@ -1020,7 +1020,7 @@ lease resolves its own authority, which is a turn of one operation.
 
 > **reach**(`context`, `options?`): `Promise`\<\{ `reach`: `object`[]; `status`: `"computed"`; \} \| \{ `reasonCode`: `"authority_unavailable"` \| `"usage_store_unavailable"`; `status`: `"unavailable"`; \}\>
 
-Defined in: [packages/core/src/kernel.ts:735](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L735)
+Defined in: [packages/core/src/kernel.ts:751](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L751)
 
 Where this actor may operate, with the authority stripped out.
 
@@ -1072,7 +1072,7 @@ recorded by the envelope as the turn's terminal.
 
 > **readAgentCard**(`context`, `subject`, `options?`): `Promise`\<[`AgentCardRead`](#agentcardread)>\>
 
-Defined in: [packages/core/src/kernel.ts:608](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L608)
+Defined in: [packages/core/src/kernel.ts:624](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L624)
 
 The kernel's description of one agent: identity, computed reach, nothing
 else.
@@ -1131,7 +1131,7 @@ field is useful but whether it is authority.
 
 > **recordEscalation**(`context`, `reason`, `options?`): `Promise`\<\{ `reason`: `string`; `requestedAt`: `string`; `requestedAuthority?`: \{ `capabilities`: `object`[]; `constraints?`: \{ `delegationDepth?`: `number`; `expiresAt?`: `string`; `maxUses?`: `number`; `notBefore?`: `string`; `purposes?`: `string`[]; \}; `id`: `string`; `metadata?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `namespaceId`: `string`; `owner`: \{ `kind`: `"human"`; `userId`: `string`; \} \| \{ `agentId`: `string`; `kind`: `"agent"`; \} \| \{ `conversationId`: `string`; `kind`: `"group"`; \} \| \{ `kind`: `"service"`; `serviceId`: `string`; \}; `purpose`: `string`; `requestedAt`: `string`; `requester`: \{ `kind`: `"human"`; `userId`: `string`; \} \| \{ `agentId`: `string`; `kind`: `"agent"`; \} \| \{ `conversationId`: `string`; `kind`: `"group"`; \} \| \{ `kind`: `"service"`; `serviceId`: `string`; \}; \}; `reviewer`: \{ `kind`: `"human"`; `userId`: `string`; \} \| \{ `agentId`: `string`; `kind`: `"agent"`; \} \| \{ `conversationId`: `string`; `kind`: `"group"`; \} \| \{ `kind`: `"service"`; `serviceId`: `string`; \}; `status`: `"pending"`; \}\>
 
-Defined in: [packages/core/src/kernel.ts:445](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L445)
+Defined in: [packages/core/src/kernel.ts:461](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L461)
 
 Record that a turn stopped and asked a human to decide.
 
@@ -1169,7 +1169,7 @@ deliberately no path from here back into the running turn.
 
 > **recordRefusedCall**(`context`, `call`, `options?`): `Promise`\<`void`>\>
 
-Defined in: [packages/core/src/kernel.ts:551](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L551)
+Defined in: [packages/core/src/kernel.ts:567](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L567)
 
 Record a tool call the envelope refused before the kernel was asked.
 
@@ -1206,7 +1206,7 @@ that stops being inferable the moment this method exists (ADR 0023).
 
 > **recordTurnEnd**(`context`, `turn`, `options?`): `Promise`\<`void`>\>
 
-Defined in: [packages/core/src/kernel.ts:515](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L515)
+Defined in: [packages/core/src/kernel.ts:531](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L531)
 
 Record how a turn ended, from the boundary that ended it.
 
@@ -1253,7 +1253,7 @@ separates a deadline from a defect.
 
 > **registerResourceProvider**(`provider`): `void`
 
-Defined in: [packages/core/src/kernel.ts:321](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L321)
+Defined in: [packages/core/src/kernel.ts:337](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L337)
 
 ###### Parameters
 
@@ -1269,7 +1269,7 @@ Defined in: [packages/core/src/kernel.ts:321](https://github.com/Aicoo-Team/Shar
 
 > **registerTool**(`handler`): `void`
 
-Defined in: [packages/core/src/kernel.ts:325](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L325)
+Defined in: [packages/core/src/kernel.ts:341](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L341)
 
 ###### Parameters
 
@@ -1285,7 +1285,7 @@ Defined in: [packages/core/src/kernel.ts:325](https://github.com/Aicoo-Team/Shar
 
 > **registerToolProvider**(`provider`): `void`
 
-Defined in: [packages/core/src/kernel.ts:329](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L329)
+Defined in: [packages/core/src/kernel.ts:345](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L345)
 
 ###### Parameters
 
@@ -1301,7 +1301,7 @@ Defined in: [packages/core/src/kernel.ts:329](https://github.com/Aicoo-Team/Shar
 
 > **sendMessage**(`context`, `envelope`, `options?`): `Promise`\<\{ `messageId`: `string`; `metadata?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `status`: `"accepted"`; `timestamp`: `string`; \} \| \{ `messageId`: `string`; `metadata?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `status`: `"delivered"`; `timestamp`: `string`; \} \| \{ `error`: \{ `code`: `string`; `details?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `message`: `string`; `retryable?`: `boolean`; \}; `messageId`: `string`; `metadata?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `status`: `"denied"`; `timestamp`: `string`; \} \| \{ `error`: \{ `code`: `string`; `details?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `message`: `string`; `retryable?`: `boolean`; \}; `messageId`: `string`; `metadata?`: [`JsonObject`](sharedos-contracts.md#jsonobject); `status`: `"failed"`; `timestamp`: `string`; \}\>
 
-Defined in: [packages/core/src/kernel.ts:1469](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L1469)
+Defined in: [packages/core/src/kernel.ts:1522](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L1522)
 
 ###### Parameters
 
@@ -1340,7 +1340,7 @@ Defined in: [packages/core/src/kernel.ts:1469](https://github.com/Aicoo-Team/Sha
 
 > **updateToolNamespaces**(`context`, `update`, `options?`): `Promise`\<\{ `namespaces`: `object`[]; `summary`: \{ `disabled`: `number`; `enabled`: `number`; `total`: `number`; \}; \}\>
 
-Defined in: [packages/core/src/kernel.ts:883](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L883)
+Defined in: [packages/core/src/kernel.ts:899](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/kernel.ts#L899)
 
 ###### Parameters
 
@@ -3550,7 +3550,7 @@ taken back out, correlated by the `callId` every span on one call carries.
 
 > **addressesEqual**(`left`, `right`): `boolean`
 
-Defined in: [packages/core/src/internal.ts:118](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/internal.ts#L118)
+Defined in: [packages/core/src/internal.ts:144](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/internal.ts#L144)
 
 #### Parameters
 
