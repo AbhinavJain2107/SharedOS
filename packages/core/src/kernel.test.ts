@@ -905,6 +905,179 @@ describe("SharedOSKernel tools", () => {
   });
 });
 
+describe("SharedOSKernel catalogue resolution", () => {
+  const NOTION_GRANT = grant("grant-notion", { namespace: "notion", path: ["workspace-a"] }, [
+    "read",
+  ]);
+
+  function notionCall(id: string): ToolCall {
+    return toolCall({ id, tool: NOTION_TOOL.name });
+  }
+
+  function providerOf(listTools: ContextToolProvider["listTools"]): ContextToolProvider {
+    return { id: "user-mcp", listTools };
+  }
+
+  it("resolves the effective catalogue once per turn, however many operations the turn makes", async () => {
+    const listTools = vi.fn<ContextToolProvider["listTools"]>(async () => [
+      successfulTool(NOTION_TOOL),
+    ]);
+    const kernel = kernelWith([NOTION_GRANT], { toolProviders: [providerOf(listTools)] });
+    const access = context(["notion"]);
+
+    const scope = await kernel.openTurnAuthority(access);
+    try {
+      await expect(kernel.listTools(access)).resolves.toEqual([NOTION_TOOL]);
+      for (let index = 0; index < 4; index += 1) {
+        await expect(kernel.invokeTool(access, notionCall(`call-${index}`))).resolves.toMatchObject(
+          {
+            status: "succeeded",
+          },
+        );
+      }
+    } finally {
+      scope.close();
+    }
+
+    expect(listTools).toHaveBeenCalledTimes(1);
+  });
+
+  it("answers a call from the definition the turn listed, not one the provider changed since", async () => {
+    // The property ADR 0026 is about. The provider is live, and between the
+    // listing and the call it moves the tool onto a resource no grant covers.
+    // A turn that re-derived would decide the call against a capability the
+    // catalogue it recorded never advertised; a turn that holds one does not.
+    let definition = NOTION_TOOL;
+    const kernel = kernelWith([NOTION_GRANT], {
+      toolProviders: [providerOf(async () => [successfulTool(definition)])],
+    });
+    const access = context(["notion"]);
+
+    const scope = await kernel.openTurnAuthority(access);
+    try {
+      await expect(kernel.listTools(access)).resolves.toEqual([NOTION_TOOL]);
+      definition = {
+        ...NOTION_TOOL,
+        requiredCapability: {
+          resource: { namespace: "notion", path: ["workspace-b"] },
+          action: "read",
+        },
+      };
+
+      await expect(kernel.invokeTool(access, notionCall("call-1"))).resolves.toMatchObject({
+        status: "succeeded",
+      });
+    } finally {
+      scope.close();
+    }
+  });
+
+  it("asks the provider again on the next turn, so the catalogue is held per turn and not once", async () => {
+    const listTools = vi.fn<ContextToolProvider["listTools"]>(async () => [
+      successfulTool(NOTION_TOOL),
+    ]);
+    const kernel = kernelWith([NOTION_GRANT], { toolProviders: [providerOf(listTools)] });
+    const access = context(["notion"]);
+
+    for (let turn = 0; turn < 2; turn += 1) {
+      const scope = await kernel.openTurnAuthority(access);
+      try {
+        await kernel.listTools(access);
+        await kernel.invokeTool(access, notionCall(`call-${turn}`));
+      } finally {
+        scope.close();
+      }
+    }
+
+    expect(listTools).toHaveBeenCalledTimes(2);
+  });
+
+  it("resolves per operation outside a turn, which is a turn of one operation", async () => {
+    const listTools = vi.fn<ContextToolProvider["listTools"]>(async () => [
+      successfulTool(NOTION_TOOL),
+    ]);
+    const kernel = kernelWith([NOTION_GRANT], { toolProviders: [providerOf(listTools)] });
+    const access = context(["notion"]);
+
+    await kernel.listTools(access);
+    await kernel.invokeTool(access, notionCall("call-1"));
+
+    expect(listTools).toHaveBeenCalledTimes(2);
+  });
+
+  it("holds no failed resolution, so the next operation in the turn derives again", async () => {
+    const listTools = vi
+      .fn<ContextToolProvider["listTools"]>()
+      .mockRejectedValueOnce(new Error("the user's MCP server is unreachable"))
+      .mockResolvedValue([successfulTool(NOTION_TOOL)]);
+    const kernel = kernelWith([NOTION_GRANT], { toolProviders: [providerOf(listTools)] });
+    const access = context(["notion"]);
+
+    const scope = await kernel.openTurnAuthority(access);
+    try {
+      await expect(kernel.invokeTool(access, notionCall("call-1"))).resolves.toMatchObject({
+        status: "failed",
+        error: { code: "tool_catalog_unavailable" },
+      });
+      await expect(kernel.invokeTool(access, notionCall("call-2"))).resolves.toMatchObject({
+        status: "succeeded",
+      });
+    } finally {
+      scope.close();
+    }
+
+    expect(listTools).toHaveBeenCalledTimes(2);
+  });
+
+  it("holds one derivation for operations that need the catalogue at the same moment", async () => {
+    const listTools = vi.fn<ContextToolProvider["listTools"]>(async () => {
+      await Promise.resolve();
+      return [successfulTool(NOTION_TOOL)];
+    });
+    const kernel = kernelWith([NOTION_GRANT], { toolProviders: [providerOf(listTools)] });
+    const access = context(["notion"]);
+
+    const scope = await kernel.openTurnAuthority(access);
+    try {
+      await Promise.all([
+        kernel.listTools(access),
+        kernel.invokeTool(access, notionCall("call-1")),
+        kernel.invokeTool(access, notionCall("call-2")),
+      ]);
+    } finally {
+      scope.close();
+    }
+
+    expect(listTools).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps namespace enablement live, because what is held is the unfiltered registry", async () => {
+    // The lease key excludes `enabledToolNamespaces` on purpose. It can, because
+    // the namespace filter runs per operation over the held registry rather than
+    // being baked into it.
+    const listTools = vi.fn<ContextToolProvider["listTools"]>(async () => [
+      successfulTool(NOTION_TOOL),
+    ]);
+    const kernel = kernelWith([NOTION_GRANT], { toolProviders: [providerOf(listTools)] });
+    const enabled = context(["notion"]);
+    const disabled = context([]);
+
+    const scope = await kernel.openTurnAuthority(enabled);
+    try {
+      await expect(kernel.listTools(enabled)).resolves.toEqual([NOTION_TOOL]);
+      await expect(kernel.listTools(disabled)).resolves.toEqual([]);
+      await expect(kernel.invokeTool(disabled, notionCall("call-1"))).resolves.toMatchObject({
+        status: "denied",
+        error: { code: "tool_unavailable" },
+      });
+    } finally {
+      scope.close();
+    }
+
+    expect(listTools).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("SharedOSKernel turn admission", () => {
   it("requires a recipient-scoped execution grant", async () => {
     const authority = new TestGrantSource();

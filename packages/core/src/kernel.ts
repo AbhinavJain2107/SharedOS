@@ -250,6 +250,14 @@ export function agentExecutionCapability(agent: Address, owner: Address): Capabi
 interface AuthorityLease {
   refs: number;
   readonly resolution: AuthorityResolution;
+  /**
+   * The effective registry this turn resolved, once an operation needed one.
+   *
+   * The promise rather than the value, so operations that need a catalogue at
+   * the same moment share one derivation instead of racing to produce two
+   * (ADR 0026).
+   */
+  registry?: Promise<ToolRegistry> | undefined;
 }
 
 /**
@@ -968,8 +976,10 @@ export class SharedOSKernel {
 
     let tools: ToolRegistry;
     try {
-      // Named separately because it is re-derived per call, and a number that
-      // could not be attributed to it would read as the cost of authorizing.
+      // Named separately because the segment is the catalogue's, and a number
+      // that could not be attributed to it would read as the cost of
+      // authorizing. Inside a turn this reads the held resolution, so what the
+      // span reports after the first operation is the holding, not a derivation.
       tools = await measure(this.#spans, SPAN.TOOL_CATALOGUE, (span) => {
         span.set("callId", call.id);
         return this.#resolveToolRegistry(context, options.signal);
@@ -1308,7 +1318,49 @@ export class SharedOSKernel {
     return result;
   }
 
+  /**
+   * The effective tool registry this turn is answered from.
+   *
+   * Resolved once and held on the turn's authority lease, so every operation a
+   * turn makes reads the same catalogue: the one `catalogHash` names, the one
+   * the MCP handshake's `listChanged` of `false` promises a client, and the one
+   * the model was shown. A `ContextToolProvider` is host-supplied and live --
+   * the MCP server behind it reconnects, the configuration behind it is
+   * re-read -- so re-deriving per operation let a turn's second call be decided
+   * against a definition its first call never saw, carrying a
+   * `requiredCapability` the recorded catalogue never advertised (ADR 0026).
+   *
+   * An operation outside a lease resolves its own, which is a turn of one
+   * operation: the degrade ADR 0010 already defines for authority, and the
+   * reason this guarantee needs nothing threaded through a host to hold.
+   *
+   * A rejection is not held. It is not a catalogue, the operation that met it
+   * fails closed on its own, and holding one would let an abort belonging to a
+   * single caller's signal answer for the rest of the turn.
+   */
   async #resolveToolRegistry(
+    context: AccessContext,
+    signal: AbortSignal | undefined,
+  ): Promise<ToolRegistry> {
+    const lease = this.#leases.get(turnAuthorityKey(context));
+    if (lease === undefined) {
+      return this.#deriveToolRegistry(context, signal);
+    }
+    lease.registry ??= this.#deriveToolRegistry(context, signal);
+    const pending = lease.registry;
+    try {
+      return await pending;
+    } catch (error) {
+      // Guarded so a rejection arriving after another operation already began a
+      // fresh derivation does not discard that one too.
+      if (lease.registry === pending) {
+        lease.registry = undefined;
+      }
+      throw error;
+    }
+  }
+
+  async #deriveToolRegistry(
     context: AccessContext,
     signal: AbortSignal | undefined,
   ): Promise<ToolRegistry> {
