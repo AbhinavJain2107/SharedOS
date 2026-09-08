@@ -8,6 +8,58 @@ each entry calls out what a host has to update.
 
 ## Unreleased
 
+### Changed — breaking
+
+- **A turn's tool catalogue is resolved once, and every call in the turn is
+  answered from it.** Three things already said so: `OpenToolBridge` computes its
+  catalogue once, because "a catalogue that could change between `tools/list` and
+  `tools/call` would make `catalogHash` a claim about a moment rather than about
+  the turn"; the MCP server answers `initialize` with
+  `capabilities.tools.listChanged: false`, a promise on the wire to every client;
+  and an execution token binds `catalogHash` into its claims, so a stale sandbox
+  cannot reconnect and call tools it was never shown. The kernel did not — it
+  re-derived the effective registry on every operation. A static registry cannot
+  differ between two derivations, but a `ContextToolProvider` can: it is an async
+  port called with the turn's context, and the MCP server or host configuration
+  behind it is live, so a turn's second call could be decided against a definition
+  its listing never published. The resolved registry is now held for the turn on
+  the authority lease ADR 0010 already opens, keyed by the same `turnAuthorityKey`;
+  an operation with no lease resolves its own, which is a turn of one operation
+  (ADR 0026, `docs/adr/0026-catalogue-resolved-once-per-turn.md`).
+
+  What the turn holds is the unfiltered registry, not a decision. `canDiscover`
+  and the invocation check still run per operation against authority resolved at
+  `context.now`, so a grant that expires part-way through a turn still refuses
+  part-way through it (ADR 0016), and `updateToolNamespaces` still takes effect
+  within the turn it is called in.
+
+  **What a host has to update.** A `ContextToolProvider` is called once per turn
+  rather than once per operation, so a provider written to return different tools
+  as a turn proceeds no longer changes what that turn is answered from — that
+  window is the one this closes. A provider that branches on
+  `enabledToolNamespaces` reads the value the turn resolved with rather than the
+  current operation's, because the lease key deliberately excludes that field;
+  `ContextToolProvider`'s own documentation now states both. A provider that is
+  slow, remote or rate-limited is called once a turn instead of once a call.
+  A provider returning freshly constructed `ToolHandler`s gets one set per turn
+  rather than one per operation, so a handler carrying state between its own
+  `resolveRequirement` and `invoke` must key that state on the call it was given
+  and not hold it on the handler: the turn's concurrent calls now share the
+  instance. SharedOS's own message-request handler was written the other way and
+  has been corrected.
+
+  A new conformance case grades it. In `catalogue-moved-mid-turn` a provider
+  publishes a tool for the turn's listing and then moves its declared capability
+  onto an action no grant carries. The call made after the move succeeds in all
+  six columns with this decision and fails in all six without it, and the same
+  tool aimed outside the granted tree is still denied `no_matching_grant` — what
+  the turn holds is the catalogue, not the decision. The manifest goes to 32 rows
+  and 165 passing cells, and the case-set, world-set and prompt-set hashes move
+  with it.
+
+  Resolving the catalogue reads 14.3 µs against 1.33 ms, under 1% of a mediated
+  call against 45%, and one whole call 968 µs against 2.44 ms.
+
 ### Added
 
 - **The shipped runtimes tell the model where it may operate.**
@@ -82,6 +134,19 @@ each entry calls out what a host has to update.
   optional additions. A host comparing two live runs of one column should now
   hold `promptSetHash` equal along with the case-set and world-set hashes before
   reading a moved cell as the model's choice.
+
+- **`tool.invoked` names the catalogue its turn was served.** `catalogHash` was
+  recorded on `tool.catalog.listed` and on no other event, so "every call in this
+  turn was answered against the catalogue that was listed" was a claim in a source
+  comment rather than something a reader of the trail could check. The kernel now
+  holds the listing's hash beside the resolution it identifies and puts it in
+  `tool.invoked`'s metadata, on the refused calls as well as the served ones. A
+  turn that never listed leaves the field off rather than inventing one, so its
+  absence reads as "no catalogue was published to this turn" and never as "a
+  different one".
+
+  **A reader joins the two events on the value.** Time order was the only
+  inference available before, and is no longer needed.
 
 ### Changed
 
