@@ -26,6 +26,14 @@ export interface ToolHandler {
  *
  * Hosts use this port for user-specific MCP servers and other dynamic catalogs
  * instead of mutating one global registry shared by concurrent users.
+ *
+ * Called once per turn, not once per operation. The kernel holds what it
+ * returns for the turn's length, so a provider that varies part-way through a
+ * turn does not change what that turn is answered from (ADR 0026). The context
+ * it is given is the one carried by the turn's first operation to need a
+ * catalogue, which for `enabledToolNamespaces` may be older than the operation
+ * being served: what the turn holds is the unfiltered registry, and the
+ * namespace check still runs per operation over it.
  */
 export interface ContextToolProvider {
   readonly id: string;

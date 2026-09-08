@@ -1368,7 +1368,7 @@ Defined in: [packages/core/src/kernel.ts:883](https://github.com/Aicoo-Team/Shar
 
 ### ToolRegistry
 
-Defined in: [packages/core/src/tool-registry.ts:35](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L35)
+Defined in: [packages/core/src/tool-registry.ts:43](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L43)
 
 #### Constructors
 
@@ -1386,7 +1386,7 @@ Defined in: [packages/core/src/tool-registry.ts:35](https://github.com/Aicoo-Tea
 
 > **copy**(): [`ToolRegistry`](#toolregistry)
 
-Defined in: [packages/core/src/tool-registry.ts:91](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L91)
+Defined in: [packages/core/src/tool-registry.ts:99](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L99)
 
 A registry holding the same registrations as this one.
 
@@ -1411,7 +1411,7 @@ context-supplied tools beside it.
 
 > **definitions**(): readonly `object`[]
 
-Defined in: [packages/core/src/tool-registry.ts:107](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L107)
+Defined in: [packages/core/src/tool-registry.ts:115](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L115)
 
 ###### Returns
 
@@ -1421,7 +1421,7 @@ readonly `object`[]
 
 > **get**(`name`): [`ToolHandler`](#toolhandler) \| `undefined`
 
-Defined in: [packages/core/src/tool-registry.ts:99](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L99)
+Defined in: [packages/core/src/tool-registry.ts:107](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L107)
 
 ###### Parameters
 
@@ -1437,7 +1437,7 @@ Defined in: [packages/core/src/tool-registry.ts:99](https://github.com/Aicoo-Tea
 
 > **handlers**(): readonly [`ToolHandler`](#toolhandler)[]
 
-Defined in: [packages/core/src/tool-registry.ts:113](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L113)
+Defined in: [packages/core/src/tool-registry.ts:121](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L121)
 
 ###### Returns
 
@@ -1447,7 +1447,7 @@ readonly [`ToolHandler`](#toolhandler)[]
 
 > **has**(`name`): `boolean`
 
-Defined in: [packages/core/src/tool-registry.ts:103](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L103)
+Defined in: [packages/core/src/tool-registry.ts:111](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L111)
 
 ###### Parameters
 
@@ -1463,7 +1463,7 @@ Defined in: [packages/core/src/tool-registry.ts:103](https://github.com/Aicoo-Te
 
 > **namespaceCatalog**(`enabledToolNamespaces`): `object`
 
-Defined in: [packages/core/src/tool-registry.ts:119](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L119)
+Defined in: [packages/core/src/tool-registry.ts:127](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L127)
 
 ###### Parameters
 
@@ -1499,7 +1499,7 @@ Defined in: [packages/core/src/tool-registry.ts:119](https://github.com/Aicoo-Te
 
 > **register**(`handler`): `void`
 
-Defined in: [packages/core/src/tool-registry.ts:38](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L38)
+Defined in: [packages/core/src/tool-registry.ts:46](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L46)
 
 ###### Parameters
 
@@ -1944,18 +1944,26 @@ Defined in: [packages/core/src/authorization.ts:120](https://github.com/Aicoo-Te
 
 ### ContextToolProvider
 
-Defined in: [packages/core/src/tool-registry.ts:30](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L30)
+Defined in: [packages/core/src/tool-registry.ts:38](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L38)
 
 Supplies tools for exactly one trusted access context.
 
 Hosts use this port for user-specific MCP servers and other dynamic catalogs
 instead of mutating one global registry shared by concurrent users.
 
+Called once per turn, not once per operation. The kernel holds what it
+returns for the turn's length, so a provider that varies part-way through a
+turn does not change what that turn is answered from (ADR 0026). The context
+it is given is the one carried by the turn's first operation to need a
+catalogue, which for `enabledToolNamespaces` may be older than the operation
+being served: what the turn holds is the unfiltered registry, and the
+namespace check still runs per operation over it.
+
 #### Properties
 
 | Property                        | Modifier   | Type     | Defined in                                                                                                                       |
 | ------------------------------- | ---------- | -------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| <a id="property-id-1"></a> `id` | `readonly` | `string` | [packages/core/src/tool-registry.ts:31](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L31) |
+| <a id="property-id-1"></a> `id` | `readonly` | `string` | [packages/core/src/tool-registry.ts:39](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L39) |
 
 #### Methods
 
@@ -1963,7 +1971,7 @@ instead of mutating one global registry shared by concurrent users.
 
 > **listTools**(`context`, `signal`): `Promise`\<readonly [`ToolHandler`](#toolhandler)[]\>
 
-Defined in: [packages/core/src/tool-registry.ts:32](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L32)
+Defined in: [packages/core/src/tool-registry.ts:40](https://github.com/Aicoo-Team/SharedOS/blob/main/packages/core/src/tool-registry.ts#L40)
 
 ###### Parameters
 
