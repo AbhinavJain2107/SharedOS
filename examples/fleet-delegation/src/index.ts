@@ -121,6 +121,26 @@ async function attempt(
 
 async function main(): Promise<void> {
   console.log("\nSharedOS — delegation on a robot line\n");
+  console.log(
+    [
+      "  DELEGATION CHAIN",
+      "  ",
+      "  operator",
+      "      │",
+      "      │  cell-3/**  move + grip + release",
+      "      │  delegationDepth = 1",
+      "      ▼",
+      "  robot-a",
+      "      │",
+      "      │  cell-3/arm-1  grip only",
+      "      │  delegationDepth = 0",
+      "      ▼",
+      "  robot-b",
+      "      ",
+      "  The child grant is narrower than its parent.",
+      "",
+    ].join("\n"),
+  );
 
   // 1. The operator gives robot A the whole of cell 3 until end of shift, and
   //    permission to pass some of it on exactly once.
